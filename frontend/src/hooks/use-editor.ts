@@ -17,6 +17,8 @@ export interface EditorActiveState {
     isListTodo?: boolean
     isListOrdered?: boolean
     isLink?: boolean
+    isBaseline?: boolean
+    isPaintRoller?: boolean
     textFormatting?: TextFormat
     textAlign?: TextAlignment
 }
@@ -63,6 +65,8 @@ export const useEditor = (options?: UseEditorOptions) => {
         isListTodo: false,
         isListOrdered: false,
         isLink: false,
+        isBaseline: false,
+        isPaintRoller: false,
         textFormatting: "normal",
         textAlign: "align_left",
     })
@@ -79,6 +83,8 @@ export const useEditor = (options?: UseEditorOptions) => {
     const isListTodo = options?.isListTodo ?? state.isListTodo
     const isListOrdered = options?.isListOrdered ?? state.isListOrdered
     const isLink = options?.isLink ?? state.isLink
+    const isBaseline = options?.isBaseline ?? state.isBaseline
+    const isPaintRoller = options?.isPaintRoller ?? state.isPaintRoller
     const textFormatting = options?.textFormatting ?? state.textFormatting
     const textAlign = options?.textAlign ?? state.textAlign
 
@@ -191,10 +197,12 @@ export const useEditor = (options?: UseEditorOptions) => {
     }, [options])
 
     const onBaseline = useCallback((color?: string) => {
+        setState((prev) => ({ ...prev, isBaseline: !prev.isBaseline }))
         options?.onSetTextColor?.(color)
     }, [options])
 
     const onPaintRoller = useCallback((color?: string) => {
+        setState((prev) => ({ ...prev, isPaintRoller: !prev.isPaintRoller }))
         options?.onSetHighlight?.(color)
     }, [options])
 
@@ -262,6 +270,8 @@ export const useEditor = (options?: UseEditorOptions) => {
         isListTodo,
         isListOrdered,
         isLink,
+        isBaseline,
+        isPaintRoller,
         isNormal,
         isHeading1,
         isHeading2,

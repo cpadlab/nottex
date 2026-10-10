@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Fragment } from 'react/jsx-runtime'
 import { useEditorContext } from '@/contexts/editor-context'
 import type { TextFormat } from '@/hooks/use-editor'
+import { cn } from 'cn'
 
 export interface SelectItemConfig {
     label: string
@@ -37,7 +38,7 @@ const SELECT_ITEMS: SelectItemConfig[] = [
 export const FormatSelect = () => {
     
     const { t: translation } = useTranslation()
-    const { textFormatting, onSetTextFormatting } = useEditorContext()
+    const { textFormatting, onSetTextFormatting, isCompact } = useEditorContext()
 
     return (    
         <Select value={textFormatting} onValueChange={(val) => {if (val) {onSetTextFormatting(val as TextFormat)}}}>
@@ -53,7 +54,7 @@ export const FormatSelect = () => {
                         return (
                             <span className="flex items-center gap-2">
                                 <Icon />
-                                <span className="hidden md:inline">
+                                <span className={cn("hidden", !isCompact && "md:inline")}>
                                     {translation(item.label)}{headingLevel}
                                 </span>
                             </span>

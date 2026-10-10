@@ -56,6 +56,7 @@ export const MobileSelect = () => {
         onLink,
         onImage,
         onVideo,
+        isCompact,
     } = useEditorContext()
 
     const items: SelectItemConfig[] = [
@@ -167,7 +168,7 @@ export const MobileSelect = () => {
     return (    
         <Select onValueChange={handleValueChange}>
             
-            <SelectTrigger size="sm" className={cn("w-auto gap-2 flex md:hidden", isAnyActive && "bg-secondary text-secondary-foreground")} data-active={isAnyActive} aria-pressed={isAnyActive}>
+            <SelectTrigger size="sm" className={cn("w-auto gap-2 flex",!isCompact && "md:hidden", isAnyActive && "bg-secondary text-secondary-foreground")} data-active={isAnyActive} aria-pressed={isAnyActive}>
                 <EllipsisIcon />
             </SelectTrigger>
         

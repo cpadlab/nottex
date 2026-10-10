@@ -3,6 +3,7 @@ import { ListIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListOrderedIc
 import { useTranslation } from 'react-i18next'
 import { Fragment } from 'react/jsx-runtime'
 import { useEditorContext } from '@/contexts/editor-context'
+import { cn } from 'cn'
 
 export interface SelectItemConfig {
     label: string
@@ -50,6 +51,7 @@ export const ListSelect = () => {
         onListOrdered,
         onListIndentDecrease,
         onListIndentIncrease,
+        isCompact,
     } = useEditorContext()
 
     const currentListValue = isList
@@ -92,7 +94,7 @@ export const ListSelect = () => {
     return (    
         <Select value={currentListValue} onValueChange={handleValueChange}>
             
-            <SelectTrigger size="sm" className={"w-auto gap-2 flex md:hidden"} aria-pressed={isAnyListActive} data-active={isAnyListActive}>
+            <SelectTrigger size="sm" className={cn("w-auto gap-2 flex", !isCompact && "md:hidden")} aria-pressed={isAnyListActive} data-active={isAnyListActive}>
                 <ActiveIcon />
             </SelectTrigger>
         

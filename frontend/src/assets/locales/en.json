@@ -33,7 +33,9 @@
             "alignright": "Align right",
             "link": "Insert link",
             "image": "Insert image",
-            "video": "Insert video"
+            "video": "Insert video",
+            "collapse": "Compact mode",
+            "expand": "Expanded mode"
         }
     }
 }

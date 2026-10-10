@@ -19,6 +19,7 @@ export interface EditorActiveState {
     isLink?: boolean
     isBaseline?: boolean
     isPaintRoller?: boolean
+    isCompact?: boolean
     textFormatting?: TextFormat
     textAlign?: TextAlignment
 }
@@ -48,6 +49,7 @@ export interface UseEditorOptions extends EditorActiveState {
     onToggleStrikethrough?: () => void
     onToggleSuperscript?: () => void
     onToggleSubscript?: () => void
+    onToggleCompact?: () => void
 }
 
 export const useEditor = (options?: UseEditorOptions) => {
@@ -67,9 +69,17 @@ export const useEditor = (options?: UseEditorOptions) => {
         isLink: false,
         isBaseline: false,
         isPaintRoller: false,
+        isCompact: false,
         textFormatting: "normal",
         textAlign: "align_left",
     })
+
+    const isCompact = options?.isCompact ?? state.isCompact
+
+    const onToggleCompact = useCallback(() => {
+        setState((prev) => ({ ...prev, isCompact: !prev.isCompact }))
+        options?.onToggleCompact?.()
+    }, [options])
 
     const isBold = options?.isBold ?? state.isBold
     const isItalic = options?.isItalic ?? state.isItalic
@@ -272,6 +282,7 @@ export const useEditor = (options?: UseEditorOptions) => {
         isLink,
         isBaseline,
         isPaintRoller,
+        isCompact,
         isNormal,
         isHeading1,
         isHeading2,
@@ -310,5 +321,6 @@ export const useEditor = (options?: UseEditorOptions) => {
         onStrikethrough,
         onSuperscript,
         onSubscript,
+        onToggleCompact,
     }
 }

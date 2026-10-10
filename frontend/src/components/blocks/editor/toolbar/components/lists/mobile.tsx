@@ -3,7 +3,6 @@ import { ListIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListOrderedIc
 import { useTranslation } from 'react-i18next'
 import { Fragment } from 'react/jsx-runtime'
 import { useEditorContext } from '@/contexts/editor-context'
-import { cn } from 'cn'
 
 export interface SelectItemConfig {
     label: string

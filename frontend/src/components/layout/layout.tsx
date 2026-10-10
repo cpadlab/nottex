@@ -7,10 +7,7 @@ const Layout = () => {
         <SidebarProvider defaultOpen={false}>
             <Leftbar />
             <SidebarInset>
-                <div className='scroll-fade h-dvh overflow-y-auto'>
-                    <SidebarTrigger />
-                    <Outlet />
-                </div>
+                <Outlet />
             </SidebarInset>
         </SidebarProvider>
     )

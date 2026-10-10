@@ -1,4 +1,4 @@
-import { Toolbar } from './toolbar/toolbar'
+import { Toolbar } from './components/toolbar/toolbar'
 import { EditorProvider } from '@/contexts/editor-context'
 import type { UseEditorOptions } from '@/hooks/use-editor'
 

@@ -7,5 +7,33 @@
             "workspaces": "Workspaces",
             "pinned": "Pinned"
         }
+    },
+    "editor": {
+        "toolbar": {
+            "normal": "Normal",
+            "heading": "Heading",
+            "bold": "Bold",
+            "italic": "Italic",
+            "underline": "Underline",
+            "strikethrough": "Strikethrough",
+            "baseline": "Text color",
+            "paintroller": "Clear formatting",
+            "quote": "Blockquote",
+            "code": "Code block",
+            "superscript": "Superscript",
+            "subscript": "Subscript",
+            "list": "Bullet list",
+            "listodo": "Task list",
+            "listorder": "Numbered list",
+            "indentdecrease": "Decrease indent",
+            "indentincrease": "Increase indent",
+            "aligncenter": "Center",
+            "alignjustify": "Justify",
+            "alignleft": "Align left",
+            "alignright": "Align right",
+            "link": "Insert link",
+            "image": "Insert image",
+            "video": "Insert video"
+        }
     }
 }

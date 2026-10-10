@@ -7,5 +7,33 @@
             "workspaces": "Espacios",
             "pinned": "Fijadas"
         }
+    },
+    "editor": {
+        "toolbar": {
+            "normal": "Normal",
+            "heading": "Título",
+            "bold": "Negrita",
+            "italic": "Cursiva",
+            "underline": "Subrayado",
+            "strikethrough": "Tachado",
+            "baseline": "Color de texto",
+            "paintroller": "Borrar formato",
+            "quote": "Cita",
+            "code": "Bloque de código",
+            "superscript": "Superíndice",
+            "subscript": "Subíndice",
+            "list": "Lista con viñetas",
+            "listodo": "Lista de tareas",
+            "listorder": "Lista numerada",
+            "indentdecrease": "Disminuir sangría",
+            "indentincrease": "Aumentar sangría",
+            "aligncenter": "Centrar",
+            "alignjustify": "Justificar",
+            "alignleft": "Alinear a la izquierda",
+            "alignright": "Alinear a la derecha",
+            "link": "Insertar enlace",
+            "image": "Insertar imagen",
+            "video": "Insertar vídeo"
+        }
     }
 }

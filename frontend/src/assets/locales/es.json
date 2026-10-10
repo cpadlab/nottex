@@ -1,3 +1,11 @@
 {
-    "title": "Nottex"
+    "title": "Nottex",
+    "layout": {
+        "sidebar": {
+            "workspace": "Workspace",
+            "notes": "Notas",
+            "workspaces": "Espacios",
+            "pinned": "Fijadas"
+        }
+    }
 }

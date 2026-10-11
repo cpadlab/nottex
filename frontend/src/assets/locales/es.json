@@ -8,6 +8,13 @@
             "pinned": "Fijadas"
         }
     },
+    "note": {
+        "breadcrumb": {
+            "home": "Inicio",
+            "workspace": "Workspace",
+            "untitled": "Sin título"
+        }
+    },
     "editor": {
         "toolbar": {
             "normal": "Normal",

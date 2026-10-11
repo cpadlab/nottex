@@ -87,7 +87,7 @@ async def send_verification_email_task(
             },
         )
     except Exception as e:
-        logger.error(f"Error sending verification email to {email}: {e}")
+        logger.error("Verification email delivery failed (%s)", type(e).__name__)
 
 
 async def send_reset_password_email_task(
@@ -121,7 +121,7 @@ async def send_reset_password_email_task(
             },
         )
     except Exception as e:
-        logger.error(f"Error sending password reset email to {email}: {e}")
+        logger.error("Password reset email delivery failed (%s)", type(e).__name__)
 
 
 async def process_resend_verification_request(email: str) -> None:
@@ -156,8 +156,8 @@ async def process_resend_verification_request(email: str) -> None:
             token=token,
             language=user.get("language", "es"),
         )
-    except Exception:
-        logger.exception("Could not process verification email request")
+    except Exception as exc:
+        logger.error("Could not process verification email request (%s)", type(exc).__name__)
 
 
 async def process_forgot_password_request(email: str) -> None:
@@ -190,8 +190,8 @@ async def process_forgot_password_request(email: str) -> None:
             token=token,
             language=user.get("language", "es"),
         )
-    except Exception:
-        logger.exception("Could not process password recovery request")
+    except Exception as exc:
+        logger.error("Could not process password recovery request (%s)", type(exc).__name__)
 
 
 async def send_password_changed_email_task(
@@ -221,7 +221,7 @@ async def send_password_changed_email_task(
             },
         )
     except Exception as e:
-        logger.error(f"Error sending password changed email to {email}: {e}")
+        logger.error("Password changed email delivery failed (%s)", type(e).__name__)
 
 
 async def send_email_changed_email_task(
@@ -256,7 +256,7 @@ async def send_email_changed_email_task(
             context=context,
         )
     except Exception as e:
-        logger.error(f"Error sending email changed notification to {email}: {e}")
+        logger.error("Email changed notification delivery failed (%s)", type(e).__name__)
 
     if email != new_email:
         try:
@@ -267,7 +267,7 @@ async def send_email_changed_email_task(
                 context=context,
             )
         except Exception as e:
-            logger.error(f"Error sending email changed notification to {new_email}: {e}")
+            logger.error("New address notification delivery failed (%s)", type(e).__name__)
 
 
 async def send_delete_account_email_task(
@@ -301,7 +301,7 @@ async def send_delete_account_email_task(
             },
         )
     except Exception as e:
-        logger.error(f"Error sending account deletion email to {email}: {e}")
+        logger.error("Account deletion email delivery failed (%s)", type(e).__name__)
 
 
 async def send_account_deleted_email_task(
@@ -331,7 +331,7 @@ async def send_account_deleted_email_task(
             },
         )
     except Exception as e:
-        logger.error(f"Error sending account deleted confirmation email to {email}: {e}")
+        logger.error("Account deleted email delivery failed (%s)", type(e).__name__)
 
 
 class AuthController:
@@ -488,7 +488,7 @@ class AuthController:
         if result.matched_count != 1:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
 
-        logger.info(f"User email verified successfully: {user.get('email')}")
+        logger.info("User email verification completed")
         return VerifyEmailResponse(
             message="auth.email_verified_success",
             is_verified=True,
@@ -706,7 +706,7 @@ class AuthController:
                 detail="error.invalid_or_used_token",
             )
 
-        logger.info(f"Password reset successfully for user: {user.get('email')}")
+        logger.info("Password reset completed")
 
         first_name = user.get("first_name", "")
         language = user.get("language", "es")
@@ -905,7 +905,7 @@ class AuthController:
         if result.matched_count != 1:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.no_pending_totp_setup")
 
-        logger.info(f"TOTP 2FA enabled successfully for user {user.get('email')}")
+        logger.info("TOTP 2FA enabled")
         return TotpStatusResponse(is_enabled=True)
 
     @staticmethod
@@ -959,7 +959,7 @@ class AuthController:
             },
         )
 
-        logger.info(f"TOTP 2FA disabled for user {user.get('email')}")
+        logger.info("TOTP 2FA disabled")
         return TotpStatusResponse(is_enabled=False)
 
     @staticmethod
@@ -1103,7 +1103,7 @@ class AuthController:
             )
         )
 
-        logger.info(f"Password changed successfully for user {user.get('email')}")
+        logger.info("Password changed")
 
         return UserActionResponse(
             message="auth.password_reset_success",
@@ -1344,7 +1344,7 @@ class AuthController:
             )
         )
 
-        logger.info(f"Account deletion requested for user {user.get('email')}")
+        logger.info("Account deletion requested")
 
         return UserActionResponse(
             message="user.delete_account_email_sent",
@@ -1414,10 +1414,7 @@ class AuthController:
         try:
             deleted_user = await process_account_deletion(user_id)
         except Exception as exc:
-            logger.error(
-                "Account deletion queued for retry after an incomplete cascade",
-                extra={"user_id": user_id},
-            )
+            logger.error("Account deletion queued for retry after incomplete cascade (%s)", type(exc).__name__)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="error.account_deletion_queued_for_retry",
@@ -1437,7 +1434,7 @@ class AuthController:
             )
         )
 
-        logger.info(f"Account permanently cascade deleted for user {deleted_user['email']} (id: {user_id})")
+        logger.info("Account deletion completed")
 
         return UserActionResponse(
             message="user.account_deleted_success",

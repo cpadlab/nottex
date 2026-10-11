@@ -86,6 +86,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security_settings(self):
+        if self.SMTP_TLS and self.SMTP_SSL:
+            raise ValueError("Configure only one SMTP encryption mode: STARTTLS or implicit TLS")
         if self.MAX_REQUEST_BODY_BYTES < self.MAX_NOTE_CONTENT_BYTES or self.MAX_NOTE_CONTENT_BYTES <= 0:
             raise ValueError("Request body limit must be positive and at least as large as the note content limit")
         if self.MAX_TAGS_PER_NOTE <= 0 or self.MAX_TAG_LENGTH <= 0 or self.MAX_COLLABORATORS_PER_NOTE <= 0:
@@ -145,6 +147,13 @@ class Settings(BaseSettings):
                 raise ValueError("TOTP_ENCRYPTION_KEY must be set in production (generate with Fernet.generate_key())")
             if not self.NOTE_ENCRYPTION_KEY:
                 raise ValueError("NOTE_ENCRYPTION_KEY must be set in production (generate with Fernet.generate_key())")
+            if self.EMAILS_ENABLED:
+                if not self.SMTP_TLS and not self.SMTP_SSL:
+                    raise ValueError("Production SMTP must use STARTTLS or implicit TLS")
+                if not self.SMTP_USER or not self.SMTP_PASSWORD:
+                    raise ValueError("Production SMTP credentials must be configured")
+                if self.SMTP_HOST.lower() in {"localhost", "127.0.0.1", "mailpit"}:
+                    raise ValueError("Production SMTP_HOST must point to a real mail provider")
             if any(urlsplit(origin).scheme != "https" for origin in self.CORS_ALLOW_ORIGINS):
                 raise ValueError("Production CORS origins must use HTTPS")
             if "localhost" in self.FRONTEND_URL or "127.0.0.1" in self.FRONTEND_URL:

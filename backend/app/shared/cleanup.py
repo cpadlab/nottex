@@ -163,7 +163,7 @@ class TokenCleanupService:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error occurred during background token cleanup: {e}")
+                logger.error("Background token cleanup failed (%s)", type(e).__name__)
 
             try:
                 await asyncio.sleep(interval_seconds)

@@ -153,7 +153,7 @@ class WorkspaceController:
         }
 
         await workspaces_col.insert_one(doc)
-        logger.info(f"Workspace created: {ws_id} for user: {user_id}")
+        logger.info("Workspace created")
 
         return await WorkspaceController._populate_workspace_response(doc, workspaces_col, notes_col)
 
@@ -271,7 +271,7 @@ class WorkspaceController:
         )
 
         updated_doc = await workspaces_col.find_one({"user_id": user_id, "id": workspace_id})
-        logger.info(f"Workspace {workspace_id} updated for user {user_id}")
+        logger.info("Workspace updated")
 
         return await WorkspaceController._populate_workspace_response(updated_doc, workspaces_col, notes_col)
 
@@ -339,8 +339,9 @@ class WorkspaceController:
             await workspaces_col.delete_one({"user_id": user_id, "id": workspace_id})
 
             logger.info(
-                f"Workspace {workspace_id} deleted with MOVE strategy. "
-                f"Moved {move_ws_result.modified_count} sub-workspaces and {move_notes_result.modified_count} notes."
+                "Workspace deleted using move strategy (moved_workspaces=%d, moved_notes=%d)",
+                move_ws_result.modified_count,
+                move_notes_result.modified_count,
             )
 
             return WorkspaceDeleteResponse(
@@ -376,8 +377,9 @@ class WorkspaceController:
         )
 
         logger.info(
-            f"Workspace {workspace_id} deleted with CASCADE strategy. "
-            f"Deleted {delete_ws_result.deleted_count} workspaces and {delete_notes_result.deleted_count} notes."
+            "Workspace deleted using cascade strategy (deleted_workspaces=%d, deleted_notes=%d)",
+            delete_ws_result.deleted_count,
+            delete_notes_result.deleted_count,
         )
 
         return WorkspaceDeleteResponse(

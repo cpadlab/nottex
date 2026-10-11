@@ -51,10 +51,10 @@ class DatabaseManager:
             logger.info("Successfully connected to MongoDB.")
 
         except PyMongoError as e:
-            logger.error(f"MongoDB connection error: {e}")
+            logger.error("MongoDB connection failed (%s)", type(e).__name__)
             raise e
         except Exception as e:
-            logger.error(f"Unexpected error during MongoDB connection: {e}")
+            logger.error("Unexpected MongoDB connection failure (%s)", type(e).__name__)
             raise e
 
 

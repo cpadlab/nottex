@@ -74,7 +74,7 @@ async def process_account_deletion(user_id: str) -> Optional[dict[str, Any]]:
             return None
         logger.info(
             "Account deletion completed",
-            extra={"user_id": user_id, "attempt": claimed.get("account_deletion_attempts")},
+            extra={"attempt": claimed.get("account_deletion_attempts")},
         )
         return claimed
     except Exception as exc:
@@ -90,12 +90,12 @@ async def process_account_deletion(user_id: str) -> Optional[dict[str, Any]]:
                     "$unset": {"account_deletion_lease_id": "", "account_deletion_lease_until": ""},
                 },
             )
-        except Exception:
-            logger.exception("Could not persist account deletion retry state", extra={"user_id": user_id})
-        logger.exception(
-            "Account deletion failed; job retained for retry",
+        except Exception as persist_exc:
+            logger.error("Could not persist account deletion retry state (%s)", type(persist_exc).__name__)
+        logger.error(
+            "Account deletion failed; job retained for retry (%s)",
+            type(exc).__name__,
             extra={
-                "user_id": user_id,
                 "stage": claimed.get("account_deletion_stage"),
                 "attempt": claimed.get("account_deletion_attempts"),
             },
@@ -103,6 +103,6 @@ async def process_account_deletion(user_id: str) -> Optional[dict[str, Any]]:
         if claimed.get("account_deletion_attempts", 0) >= 5:
             logger.critical(
                 "Account deletion has failed at least five times and needs operator attention",
-                extra={"user_id": user_id, "stage": claimed.get("account_deletion_stage")},
+                extra={"stage": claimed.get("account_deletion_stage")},
             )
         raise

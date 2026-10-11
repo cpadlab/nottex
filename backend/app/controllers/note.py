@@ -68,7 +68,7 @@ async def send_note_shared_email_task(
             },
         )
     except Exception as e:
-        logger.error(f"Error sending note shared email to {recipient_email}: {e}")
+        logger.error("Shared note email delivery failed (%s)", type(e).__name__)
 
 
 class NoteController:
@@ -214,7 +214,7 @@ class NoteController:
             "encryption_version": 1,
         }
         await notes_col.insert_one(stored_doc)
-        logger.info(f"Note {note_id} created by user {user_id}")
+        logger.info("Note created")
         resp = NoteController._doc_to_response(doc, user_id)
 
         await user_broadcaster.publish(user_id, {

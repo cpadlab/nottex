@@ -6,6 +6,7 @@ from email.utils import formataddr
 from pathlib import Path
 import re
 import smtplib
+import ssl
 from typing import Any, Dict, List, Optional, Union
 
 from app.core.config import settings
@@ -112,29 +113,32 @@ class EmailService:
         Synchronous SMTP dispatch.
         """
         if not self.enabled:
-            logger.info(f"[Email Disabled] Skipped sending '{message['Subject']}' to {to_list}")
+            logger.info("Email delivery disabled; message skipped")
             return False
 
         try:
             if self.ssl:
-                server = smtplib.SMTP_SSL(self.host, self.port, timeout=10)
+                server = smtplib.SMTP_SSL(
+                    self.host, self.port, timeout=10, context=ssl.create_default_context()
+                )
             else:
                 server = smtplib.SMTP(self.host, self.port, timeout=10)
 
             with server:
                 if self.tls and not self.ssl:
-                    server.starttls()
+                    server.ehlo()
+                    server.starttls(context=ssl.create_default_context())
 
                 if self.user and self.password:
                     server.login(self.user, self.password)
 
                 server.sendmail(message["From"], to_list, message.as_string())
 
-            logger.info(f"Email '{message['Subject']}' sent successfully to {to_list}")
+            logger.info("Email delivery succeeded (recipient_count=%d)", len(to_list))
             return True
 
         except Exception as e:
-            logger.error(f"Failed to send email to {to_list}: {e}")
+            logger.error("Email delivery failed (%s)", type(e).__name__)
             raise e
 
     async def send_email(

@@ -2,6 +2,7 @@ import Editor from "@/components/blocks/editor/editor"
 import { useParams } from "react-router-dom"
 import { NoteProvider } from "@/contexts/note-context"
 import { NoteBreadcrumb } from "./components/breadcrumb"
+import { NoteTitle } from "./components/title"
 
 interface RouteParams {
     id: string
@@ -17,6 +18,7 @@ const NotePage = () => {
             <div className="px-6 py-8 h-dvh max-h-dvh min-h-dvh relative">
                 <div className="max-w-[867.15px] mx-auto h-full flex flex-col gap-4">
                     <NoteBreadcrumb />
+                    <NoteTitle />
                     <Editor />
                 </div>
             </div>

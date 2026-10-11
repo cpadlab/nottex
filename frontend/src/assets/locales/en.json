@@ -11,11 +11,12 @@
     "note": {
         "breadcrumb": {
             "home": "Home",
-            "workspace": "Workspace",
-            "untitled": "Untitled"
-        }
+            "workspace": "Workspace"
+        },
+        "untitled": "Untitled"
     },
     "editor": {
+        "placeholder": "Start writing your note here...",
         "toolbar": {
             "normal": "Normal",
             "heading": "Heading",

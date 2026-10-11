@@ -14,7 +14,7 @@ export const NoteBreadcrumb = () => {
 
     return (
         <Breadcrumb>
-            <BreadcrumbList>
+            <BreadcrumbList className='truncate flex-nowrap'>
     
                 <BreadcrumbItem>
                     <BreadcrumbLink render={<Link to="/notes" />}>{translation('note.breadcrumb.home')}</BreadcrumbLink>
@@ -55,11 +55,11 @@ export const NoteBreadcrumb = () => {
                 <BreadcrumbSeparator />
 
                 <BreadcrumbItem>
-                    <BreadcrumbPage>
-                        {title.trim() ? title : translation('note.breadcrumb.untitled')}
+                    <BreadcrumbPage className='truncate'>
+                        <p className='truncate'>{title.trim() ? title : translation('note.untitled')}</p>
                     </BreadcrumbPage>
                 </BreadcrumbItem>
-                
+
             </BreadcrumbList>
         </Breadcrumb>
     )

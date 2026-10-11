@@ -933,9 +933,104 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onInsertLink?.(url)
     }, [options])
 
-    const onImage = useCallback((src?: string) => {
-        options?.onInsertImage?.(src)
-    }, [options])
+    const insertImage = useCallback(
+        (src: string) => {
+            const editor = editorRef.current
+            if (!editor) return
+
+            editor.focus()
+            const selection = window.getSelection()
+
+            const imgContainer = document.createElement("div")
+            imgContainer.setAttribute("data-type", "image-block")
+            imgContainer.setAttribute("data-src", src)
+            imgContainer.setAttribute("data-layout", "fit")
+            imgContainer.setAttribute("data-align", "center")
+            imgContainer.setAttribute("contenteditable", "false")
+            imgContainer.className = "my-4 select-none cursor-default"
+
+            const rawImg = document.createElement("img")
+            rawImg.setAttribute("src", src)
+            rawImg.setAttribute("data-raw-img", "")
+            rawImg.setAttribute("style", "display:none;")
+            imgContainer.appendChild(rawImg)
+
+            let targetBlock: HTMLElement | null = null
+            if (selection && selection.rangeCount > 0) {
+                let node: Node | null = selection.anchorNode
+                while (node && node !== editor) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        targetBlock = node as HTMLElement
+                    }
+                    node = node.parentNode
+                }
+            }
+
+            const nextP = document.createElement("p")
+            nextP.innerHTML = "<br>"
+
+            if (targetBlock && targetBlock !== editor) {
+                const isTargetEmpty = targetBlock.textContent?.trim() === ""
+                if (isTargetEmpty && !targetBlock.querySelector("img")) {
+                    targetBlock.replaceWith(imgContainer)
+                    imgContainer.after(nextP)
+                } else {
+                    targetBlock.after(imgContainer)
+                    imgContainer.after(nextP)
+                }
+            } else {
+                editor.appendChild(imgContainer)
+                editor.appendChild(nextP)
+            }
+
+            if (selection) {
+                const range = document.createRange()
+                range.selectNodeContents(nextP)
+                range.collapse(false)
+                selection.removeAllRanges()
+                selection.addRange(range)
+            }
+
+            const inputEvent = new Event("input", { bubbles: true })
+            editor.dispatchEvent(inputEvent)
+
+            if (options?.onChange) {
+                isInternalUpdate.current = true
+                options.onChange(editor.innerHTML)
+            }
+
+            handleSelectionChange()
+        },
+        [editorRef, handleSelectionChange, isInternalUpdate, options]
+    )
+
+    const onImage = useCallback(
+        (src?: string) => {
+            if (src) {
+                insertImage(src)
+                options?.onInsertImage?.(src)
+            } else {
+                const input = document.createElement("input")
+                input.type = "file"
+                input.accept = "image/*"
+                input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0]
+                    if (file) {
+                        const reader = new FileReader()
+                        reader.onload = () => {
+                            if (typeof reader.result === "string") {
+                                insertImage(reader.result)
+                                options?.onInsertImage?.(reader.result)
+                            }
+                        }
+                        reader.readAsDataURL(file)
+                    }
+                }
+                input.click()
+            }
+        },
+        [insertImage, options]
+    )
 
 
     return {
@@ -989,6 +1084,7 @@ export const useEditor = (options?: UseEditorOptions) => {
         onPaintRoller,
         onLink,
         onImage,
+        insertImage,
         onBold,
         onItalic,
         onUnderline,

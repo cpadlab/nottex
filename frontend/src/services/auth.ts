@@ -119,6 +119,11 @@ export const authService = {
         return response.data;
     },
 
+    async exportUserData(): Promise<Record<string, unknown>> {
+        const response = await api.get<Record<string, unknown>>("/auth/account/export");
+        return response.data;
+    },
+
     logout(): void {
         localStorage.removeItem("access_token");
     },

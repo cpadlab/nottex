@@ -143,6 +143,7 @@
         "left_success": "You have left this shared note.",
         "permanently_deleted_success": "Note permanently deleted.",
         "shared_success": "Note shared successfully.",
-        "duplicated_success": "Note duplicated successfully."
+        "duplicated_success": "Note duplicated successfully.",
+        "trash_emptied_success": "Trash emptied successfully."
     }
 }

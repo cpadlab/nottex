@@ -47,6 +47,11 @@ export const noteService = {
         return response.data;
     },
 
+    async emptyTrash(): Promise<{ message: string; count: number }> {
+        const response = await api.delete<{ message: string; count: number }>("/notes/trash/empty");
+        return response.data;
+    },
+
     async restore(noteId: string): Promise<Note> {
         const response = await api.post<Note>(`/notes/${noteId}/restore`);
         return response.data;

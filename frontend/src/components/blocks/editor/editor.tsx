@@ -15,7 +15,7 @@ const Editor = ({ options }: EditorProps) => {
         <EditorProvider options={options}>
             <div className='flex flex-col gap-4 flex-1'>
                 <Toolbar />
-                <EditorTextarea value={content} onChange={(e) => setContent(e.target.value)} />
+                <EditorTextarea className='pb-16 md:pb-0' value={content} onChange={(e) => setContent(e.target.value)} />
             </div>
         </EditorProvider>
     )

@@ -14,20 +14,36 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useEditorContext } from "@/contexts/editor-context"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useKeyboardOffset } from "@/hooks/use-keyboard-offset"
 
 export const Toolbar = () => {
     
     const { t: translation } = useTranslation()
     const { isCompact, onToggleCompact } = useEditorContext()
+    const isMobile = useIsMobile()
+    const keyboardOffset = useKeyboardOffset()
+
+    if (isMobile) {
+        return (
+            <div style={{ bottom: `calc(1rem + ${keyboardOffset}px)` }} className='fixed left-0 right-0 flex z-50 items-center gap-2 justify-center px-4 transition-[bottom] duration-75 ease-out'>
+                <FormatSelect />
+                <RichTextButtons />
+                <ColorStyleButtons />
+                <ListSelect />
+                <MobileSelect />
+            </div>
+        )
+    }
 
     return (
-        <div className='flex z-9999 items-center gap-2 sticky top-4 bottom-4 md:justify-start justify-center'>
+        <div className='flex z-50 items-center gap-2 sticky top-4 md:justify-start justify-center'>
             
             <FormatSelect />
             <RichTextButtons />
             <ColorStyleButtons />
 
-            {!isCompact && (
+            {!isCompact ? (
                 <>
                     <BlockInsertionButtons />
                     <ListsTypeButtons />
@@ -36,14 +52,15 @@ export const Toolbar = () => {
                     <MediaButtons />
                     <ScriptStyleButtons />
                 </>
+            ) : (
+                <>
+                    <ListSelect />
+                    <MobileSelect />
+                </>
             )}
 
-            <ListSelect />
-            <MobileSelect />
-
             <Tooltip>
-                <TooltipTrigger
-                    render={ <Button size="icon-sm" variant="outline" className="hidden md:flex cursor-pointer" onClick={onToggleCompact} />}>
+                <TooltipTrigger render={ <Button size="icon-sm" variant="outline" className="hidden md:flex cursor-pointer" onClick={onToggleCompact} />}>
                     {isCompact ? <ChevronRightIcon /> : <ChevronLeftIcon />}
                 </TooltipTrigger>
                 <TooltipContent>

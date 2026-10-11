@@ -229,7 +229,38 @@ async def send_delete_account_email_task(
         logger.error(f"Error sending account deletion email to {email}: {e}")
 
 
+async def send_account_deleted_email_task(
+    email: str,
+    first_name: str,
+    language: str = "es",
+) -> None:
+    """
+    Background worker task to notify the user that their account and data have been permanently deleted.
+    """
+    is_en = language.lower().startswith("en")
+    template_name = "en/account_deleted.html" if is_en else "es/account_deleted.html"
+    subject = (
+        f"Your {settings.APP_NAME} account has been deleted"
+        if is_en
+        else f"Tu cuenta en {settings.APP_NAME} ha sido eliminada"
+    )
+
+    try:
+        await emailer.send_email(
+            to=email,
+            subject=subject,
+            template_name=template_name,
+            context={
+                "app_name": settings.APP_NAME,
+                "first_name": first_name.capitalize(),
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error sending account deleted confirmation email to {email}: {e}")
+
+
 class AuthController:
+
 
 
     """
@@ -1309,6 +1340,14 @@ class AuthController:
         )
 
         await users_collection.delete_one({"_id": user_id})
+
+        asyncio.create_task(
+            send_account_deleted_email_task(
+                email=email,
+                first_name=user.get("first_name", ""),
+                language=user.get("language", "es"),
+            )
+        )
 
         logger.info(f"Account permanently cascade deleted for user {email} (id: {user_id})")
 

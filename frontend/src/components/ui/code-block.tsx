@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { codeToHtml } from 'shiki'
 import type { BundledLanguage } from 'shiki'
-import { cn } from '@/lib/utils'
+import { cn } from 'cn'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CheckIcon, CopyIcon } from "lucide-react"

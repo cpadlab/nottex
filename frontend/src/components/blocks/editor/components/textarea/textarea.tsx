@@ -4,6 +4,7 @@ import { cn } from 'cn'
 import { useTranslation } from 'react-i18next'
 import { useEditorContext } from '@/contexts/editor-context'
 import { TodoCheckboxItem } from './components/todo-checkbox-item'
+import { CodeBlockItem } from './components/code-block-item'
 
 export interface EditorTextareaProps extends ComponentProps<'div'> {
     placeholder?: string
@@ -15,6 +16,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
     const defaultPlaceholder = translation('editor.placeholder')
     const { editorRef, handleInput, handleKeyDown, handleSelectionChange } = useEditorContext()
     const [checkboxContainers, setCheckboxContainers] = useState<HTMLElement[]>([])
+    const [codeBlockContainers, setCodeBlockContainers] = useState<HTMLElement[]>([])
 
     const syncCheckboxContainers = useCallback(() => {
         if (!editorRef.current) return
@@ -37,13 +39,36 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         })
     }, [editorRef])
 
+    const syncCodeBlockContainers = useCallback(() => {
+        if (!editorRef.current) return
+        const containers = Array.from(
+            editorRef.current.querySelectorAll<HTMLElement>("div[data-type=code-block]")
+        )
+        containers.forEach((c, idx) => {
+            if (!c.dataset.id) {
+                c.dataset.id = `code-blk-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`
+            }
+        })
+        setCodeBlockContainers((prev) => {
+            if (
+                prev.length === containers.length &&
+                prev.every((c, i) => c === containers[i])
+            ) {
+                return prev
+            }
+            return containers
+        })
+    }, [editorRef])
+
     useEffect(() => {
         syncCheckboxContainers()
+        syncCodeBlockContainers()
         const editor = editorRef.current
         if (!editor) return
 
         const observer = new MutationObserver(() => {
             syncCheckboxContainers()
+            syncCodeBlockContainers()
         })
 
         observer.observe(editor, {
@@ -54,7 +79,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         return () => {
             observer.disconnect()
         }
-    }, [syncCheckboxContainers, editorRef])
+    }, [syncCheckboxContainers, syncCodeBlockContainers, editorRef])
 
     return (
         <>
@@ -85,6 +110,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                     "[&_li[data-indent='6']]:ml-36",
                     "[&_li[data-indent='7']]:ml-42",
                     "[&_li[data-indent='8']]:ml-48",
+                    "[&_div[data-type=code-block]]:my-3 [&_div[data-type=code-block]]:select-none [&_div[data-type=code-block]]:cursor-default",
                     "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
                     className
                 )}
@@ -95,6 +121,15 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                 const id = container.dataset.id || "todo-cb"
                 return createPortal(
                     <TodoCheckboxItem container={container} />,
+                    container,
+                    id
+                )
+            })}
+
+            {codeBlockContainers.map((container) => {
+                const id = container.dataset.id || "code-blk"
+                return createPortal(
+                    <CodeBlockItem container={container} />,
                     container,
                     id
                 )

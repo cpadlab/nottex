@@ -105,6 +105,7 @@
         "collaborator_user_not_found": "User with that email is not registered in Nottex.",
         "cannot_share_with_yourself": "You cannot share a note with yourself.",
         "invalid_credentials": "The credentials provided are invalid.",
+        "email_not_verified": "Verify your email address before signing in.",
         "invalid_password": "The password provided is incorrect.",
         "invalid_current_password": "The current password provided is incorrect.",
         "email_same_as_current": "The new email address cannot be the same as your current email.",

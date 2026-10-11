@@ -47,6 +47,10 @@ them, so an HttpOnly cookie session with CSRF protection remains a worthwhile
 future hardening step. Existing access tokens without the new version claim are
 rejected after this update, so users must sign in again.
 
+New accounts do not receive an access token at registration. Login and all
+authenticated endpoints require a verified email; changing an email requires
+verification again before the account can be used.
+
 The MongoDB initialization script creates `nottex_app` with `readWrite` access
 only to the `users` and `notes` databases. The application connects as that user;
 the root account is reserved for MongoDB initialization and its health check.

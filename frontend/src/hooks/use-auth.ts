@@ -88,7 +88,7 @@ export function useAuth(): UseAuthReturn {
             try {
                 const response = await authService.register(data);
                 const userObj = response.user ?? null;
-                setUser(userObj);
+                setUser(null);
                 return userObj;
             } finally {
                 setIsLoading(false);

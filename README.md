@@ -93,6 +93,45 @@ If another load balancer or CDN sits in front of Nginx, configure Nginx's real
 IP module for only that provider's trusted proxy ranges. Do not trust arbitrary
 client-supplied `X-Forwarded-For` values.
 
+### MongoDB backups and recovery
+
+The named Docker volume is persistence, not a backup. The backup script stops
+the backend and MongoDB briefly to make a consistent physical archive, encrypts
+it with `age`, restarts both services even if the backup fails, and removes local
+archives older than 30 days. Install Docker Compose and `age` on the host, keep
+the `age` private identity outside this server, then schedule this command daily:
+
+```sh
+AGE_RECIPIENT=age1... BACKUP_DIR=/mnt/nottex-backups ./deploy/backup-mongodb.sh
+```
+
+Copy the resulting `.age` files to a separate off-site account or region and
+verify the copy completed. A practical initial target is a 24-hour recovery
+point objective and a four-hour recovery time objective. The script only keeps
+the local 30-day set; configure off-site retention separately. Back up the
+Compose `.env` and the `NOTE_ENCRYPTION_KEY`, `TOTP_ENCRYPTION_KEY`, and
+`AGE` identity using a secret manager or another encrypted, access-controlled
+store. Never put private keys in the MongoDB archive or repository. The backend
+also writes process logs to Docker's bounded `json-file` logs (10 MB × 5 files
+per service); restrict Docker access and keep any centralized copy under a
+documented retention policy.
+
+At least quarterly, restore a backup to a **new staging volume** and verify that
+MongoDB becomes healthy, a test account can authenticate, notes can be read, and
+encrypted titles/content decrypt with the retained `NOTE_ENCRYPTION_KEY`. The
+restore script refuses to overwrite an existing volume:
+
+```sh
+AGE_IDENTITY_FILE=/secure/age-identity.txt \
+RESTORE_VOLUME=nottex_restore_drill \
+  ./deploy/restore-mongodb.sh /mnt/nottex-backups/nottex-mongodb-YYYYMMDDTHHMMSSZ.tar.gz.age
+```
+
+After validating the staging copy, schedule a maintenance window, stop the
+application, set `MONGODB_VOLUME_NAME` in `.env` to the restored volume, and
+start MongoDB/backend. Keep the original volume intact until the restored
+application has been checked. Restore with the same MongoDB major version.
+
 ### Existing MongoDB volume
 
 MongoDB's initialization scripts run only when its data directory is empty. An

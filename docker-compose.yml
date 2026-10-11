@@ -5,6 +5,11 @@ services:
       dockerfile: Dockerfile
     container_name: nottex-frontend
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     ports:
       - "${FRONTEND_HTTP_PORT:-80}:80"
       - "${FRONTEND_HTTPS_PORT:-443}:443"
@@ -23,6 +28,11 @@ services:
       dockerfile: Dockerfile
     container_name: nottex-backend
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     expose:
       - "8000"
     environment:
@@ -57,6 +67,11 @@ services:
     image: mongo:8.0
     container_name: nottex-mongodb
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-nottex_root}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?Set MONGO_INITDB_ROOT_PASSWORD to a random secret}
@@ -81,4 +96,4 @@ networks:
 
 volumes:
   mongodb_data:
-    name: nottex_mongodb_data
+    name: ${MONGODB_VOLUME_NAME:-nottex_mongodb_data}

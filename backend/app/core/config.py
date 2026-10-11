@@ -150,9 +150,14 @@ class Settings(BaseSettings):
             if self.EMAILS_ENABLED:
                 if not self.SMTP_TLS and not self.SMTP_SSL:
                     raise ValueError("Production SMTP must use STARTTLS or implicit TLS")
-                if not self.SMTP_USER or not self.SMTP_PASSWORD:
+                if not self.SMTP_USER or not self.SMTP_USER.strip() or not self.SMTP_PASSWORD or not self.SMTP_PASSWORD.strip():
                     raise ValueError("Production SMTP credentials must be configured")
-                if self.SMTP_HOST.lower() in {"localhost", "127.0.0.1", "mailpit"}:
+                smtp_host = self.SMTP_HOST.strip().lower().rstrip(".")
+                if (
+                    smtp_host in {"localhost", "127.0.0.1", "mailpit"}
+                    or smtp_host.endswith(".localhost")
+                    or smtp_host.endswith(".local")
+                ):
                     raise ValueError("Production SMTP_HOST must point to a real mail provider")
             if any(urlsplit(origin).scheme != "https" for origin in self.CORS_ALLOW_ORIGINS):
                 raise ValueError("Production CORS origins must use HTTPS")

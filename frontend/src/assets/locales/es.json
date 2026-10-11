@@ -125,7 +125,9 @@
     "user": {
         "profile_updated_success": "Perfil actualizado con éxito.",
         "email_updated_success": "Correo electrónico actualizado. Se ha enviado un enlace de confirmación al nuevo correo.",
-        "language_updated_success": "Preferencia de idioma guardada con éxito."
+        "language_updated_success": "Preferencia de idioma guardada con éxito.",
+        "delete_account_email_sent": "Se ha enviado un correo con el enlace para confirmar la eliminación de tu cuenta.",
+        "account_deleted_success": "Tu cuenta y todos tus datos han sido eliminados permanentemente."
     },
     "workspace": {
         "created_success": "Espacio de trabajo creado con éxito.",

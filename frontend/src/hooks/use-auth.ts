@@ -5,8 +5,10 @@ import type {
     ChangeEmailRequest,
     ChangeLanguageRequest,
     ChangePasswordRequest,
+    ConfirmDeleteAccountRequest,
     LoginRequest,
     RegisterRequest,
+    RequestDeleteAccountRequest,
     UpdateProfileRequest,
     User,
     UserActionResponse,
@@ -24,6 +26,8 @@ export interface UseAuthReturn {
     changePassword: (data: ChangePasswordRequest) => Promise<UserActionResponse>;
     changeEmail: (data: ChangeEmailRequest) => Promise<UserActionResponse>;
     changeLanguage: (data: ChangeLanguageRequest) => Promise<UserActionResponse>;
+    requestDeleteAccount: (data: RequestDeleteAccountRequest) => Promise<UserActionResponse>;
+    confirmDeleteAccount: (data: ConfirmDeleteAccountRequest) => Promise<UserActionResponse>;
     logout: () => void;
 }
 
@@ -133,6 +137,22 @@ export function useAuth(): UseAuthReturn {
         []
     );
 
+    const requestDeleteAccount = useCallback(
+        async (data: RequestDeleteAccountRequest): Promise<UserActionResponse> => {
+            return await authService.requestDeleteAccount(data);
+        },
+        []
+    );
+
+    const confirmDeleteAccount = useCallback(
+        async (data: ConfirmDeleteAccountRequest): Promise<UserActionResponse> => {
+            const res = await authService.confirmDeleteAccount(data);
+            setUser(null);
+            return res;
+        },
+        []
+    );
+
     const logout = useCallback(() => {
         authService.logout();
         setUser(null);
@@ -154,8 +174,11 @@ export function useAuth(): UseAuthReturn {
         changePassword,
         changeEmail,
         changeLanguage,
+        requestDeleteAccount,
+        confirmDeleteAccount,
         logout,
     };
 }
+
 
 

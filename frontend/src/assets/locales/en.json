@@ -125,7 +125,9 @@
     "user": {
         "profile_updated_success": "Profile updated successfully.",
         "email_updated_success": "Email address updated. A verification link has been sent to your new email.",
-        "language_updated_success": "Language preference updated successfully."
+        "language_updated_success": "Language preference updated successfully.",
+        "delete_account_email_sent": "An email with a confirmation link has been sent to confirm account deletion.",
+        "account_deleted_success": "Your account and all associated data have been permanently deleted."
     },
     "workspace": {
         "created_success": "Workspace created successfully.",

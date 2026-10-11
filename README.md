@@ -10,11 +10,17 @@ a real SMTP provider before starting the application.
    separate random secrets for the application signing key and both MongoDB
    passwords, for example with `openssl rand -hex 32`. `MONGO_APP_PASSWORD`
    must be hexadecimal and at least 64 characters. Do not reuse the root
-   password.
+   password. Production startup also requires `SECRET_KEY` to be at least 64
+   characters and rejects `DEBUG=true`.
 2. Set `SMTP_HOST`, `SMTP_USER`, and `SMTP_PASSWORD` for your production mail
    provider. SMTP STARTTLS is enabled by default on port 587. For implicit TLS,
    set `SMTP_SSL=true` and use the provider's SSL port.
 3. Set `FRONTEND_URL` to the public HTTPS origin of the application.
+   `CORS_ALLOW_ORIGINS` is a JSON array of exact browser origins, for example
+   `["https://your-domain.example"]`. Add a second origin explicitly if the
+   frontend is hosted on a separate domain; wildcards are rejected. CORS only
+   allows the API methods and headers used by the application and exposes
+   `Retry-After` for rate-limit responses.
 4. Start the stack with `docker compose up -d --build`.
 
 The MongoDB initialization script creates `nottex_app` with `readWrite` access

@@ -24,9 +24,11 @@ services:
       - "8000"
     environment:
       ENVIRONMENT: production
+      DEBUG: "false"
       DATABASE_URL: mongodb://nottex_app:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD to a random hex value}@mongodb:27017/?authSource=admin
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY to a cryptographically random secret}
       FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL to the public application URL}
+      CORS_ALLOW_ORIGINS: "${CORS_ALLOW_ORIGINS:?Set CORS_ALLOW_ORIGINS to a JSON array of explicit HTTPS origins}"
       EMAILS_ENABLED: ${EMAILS_ENABLED:-true}
       SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST to your production SMTP provider}
       SMTP_PORT: ${SMTP_PORT:-587}

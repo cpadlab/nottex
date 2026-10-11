@@ -72,6 +72,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.quote",
             value: "quote",
             isActive: isQuote,
+            shortcut: [mod, "Shift", "Q"],
             onClick: onQuote,
         },
         { 

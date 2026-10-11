@@ -26,6 +26,7 @@ export const BlockInsertionButtons = () => {
             icon: QuoteIcon, 
             label: "editor.toolbar.quote",
             isActive: isQuote,
+            shortcut: [mod, "Shift", "Q"],
             onClick: onQuote,
         },
         { 

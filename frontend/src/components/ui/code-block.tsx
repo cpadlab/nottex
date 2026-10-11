@@ -3,6 +3,7 @@ import * as React from 'react'
 import { codeToHtml } from 'shiki'
 import type { BundledLanguage } from 'shiki'
 import { cn } from 'cn'
+import { useTranslation } from 'react-i18next'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CheckIcon, CopyIcon, Trash2Icon } from "lucide-react"
@@ -67,6 +68,7 @@ async function highlight(code: string, lang: BundledLanguage = 'tsx'): Promise<s
 
 function CodeBlockCopyButton({ code, className, ...props }: React.ComponentProps<'button'> & { code: string }) {
   const [copied, setCopied] = React.useState(false)
+  const { t: translation } = useTranslation()
 
   const handleCopy = React.useCallback(() => {
     if (typeof navigator === 'undefined') return
@@ -96,10 +98,11 @@ function CodeBlockCopyButton({ code, className, ...props }: React.ComponentProps
   return (
     <button
       data-slot='code-block-copy'
-      aria-label={copied ? 'Copied' : 'Copy code'}
+      aria-label={copied ? translation('editor.code.copied') : translation('editor.code.copy')}
+      title={copied ? translation('editor.code.copied') : translation('editor.code.copy')}
       onClick={handleCopy}
       className={cn(
-        'text-muted-foreground hover:text-foreground inline-flex items-center justify-center rounded-md p-1.5 transition-colors',
+        'text-muted-foreground hover:text-foreground inline-flex items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer',
         className
       )}
       {...props}
@@ -241,6 +244,7 @@ function CodeBlockEditablePane({
   className,
   style,
 }: CodeBlockEditablePaneProps) {
+  const { t: translation } = useTranslation()
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
   React.useEffect(() => {
@@ -286,7 +290,7 @@ function CodeBlockEditablePane({
         value={code}
         onChange={(e) => onChange?.(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="// Escribe tu código aquí..."
+        placeholder={translation('editor.code.placeholder')}
         spellCheck={false}
         className='flex-1 min-h-[90px] py-3 px-3 bg-transparent text-foreground placeholder:text-muted-foreground/50 outline-none resize-none font-mono text-sm leading-6 whitespace-pre overflow-x-auto'
       />
@@ -310,6 +314,9 @@ function CodeBlock({
   onDelete,
   ...props
 }: CodeBlockProps) {
+  const { t: translation } = useTranslation()
+  const defaultTitle = translation('editor.code.title')
+
   // Normalise to a files array so the rest of the component is uniform
   const normalizedFiles: CodeBlockFile[] = React.useMemo(() => {
     if (files && files.length > 0) return files
@@ -317,7 +324,7 @@ function CodeBlock({
     if (code !== undefined) {
       return [
         {
-          filename: filename ? filename : 'Código',
+          filename: filename ? filename : defaultTitle,
           code,
           language,
           panelClassName,
@@ -330,7 +337,7 @@ function CodeBlock({
     }
 
     return []
-  }, [files, code, language, filename, panelClassName, paneStyle, highlightLines, highlightClassName, showLineNumbers])
+  }, [files, code, language, filename, defaultTitle, panelClassName, paneStyle, highlightLines, highlightClassName, showLineNumbers])
 
   const isMulti = normalizedFiles.length > 1
   const [selectedTab, setSelectedTab] = React.useState<string | null>(null)
@@ -381,10 +388,10 @@ function CodeBlock({
           {onDelete && (
             <button
               data-slot='code-block-delete'
-              aria-label='Eliminar bloque de código'
+              aria-label={translation('editor.code.delete')}
+              title={translation('editor.code.delete')}
               onClick={onDelete}
               className='text-muted-foreground hover:text-destructive inline-flex items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer'
-              title='Eliminar bloque de código'
             >
               <Trash2Icon className='size-3.5' />
             </button>

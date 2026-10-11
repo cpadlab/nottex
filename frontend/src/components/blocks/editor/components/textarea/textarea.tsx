@@ -111,6 +111,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                     "[&_li[data-indent='7']]:ml-42",
                     "[&_li[data-indent='8']]:ml-48",
                     "[&_div[data-type=code-block]]:my-3 [&_div[data-type=code-block]]:select-none [&_div[data-type=code-block]]:cursor-default",
+                    "[&_blockquote]:border-l-4 [&_blockquote]:border-l-primary [&_blockquote]:bg-muted [&_blockquote]:text-muted-foreground [&_blockquote]:pl-4 [&_blockquote]:pr-3 [&_blockquote]:py-2.5 [&_blockquote]:my-3 [&_blockquote]:rounded-r-lg [&_blockquote]:italic",
                     "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
                     className
                 )}

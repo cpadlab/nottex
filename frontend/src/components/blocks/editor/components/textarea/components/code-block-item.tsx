@@ -46,7 +46,7 @@ export const CodeBlockItem = ({ container }: CodeBlockItemProps) => {
 
     return (
         <div onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} className="my-3 select-none">
-            <CodeBlock code={code} filename="Código" showLineNumbers editable onChange={handleChange} onDelete={handleDelete} />
+            <CodeBlock code={code} showLineNumbers editable onChange={handleChange} onDelete={handleDelete} />
         </div>
     )
 }

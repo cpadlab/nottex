@@ -171,6 +171,121 @@ export const useKeybindings = ({
                 }
             }
 
+            if (e.key === ' ' || e.key === 'Spacebar') {
+                const selection = window.getSelection()
+                if (selection && selection.rangeCount > 0 && selection.isCollapsed && editorRef?.current) {
+                    const anchorNode = selection.anchorNode
+                    const offset = selection.anchorOffset
+
+                    if (anchorNode && anchorNode.nodeType === Node.TEXT_NODE) {
+                        const text = anchorNode.textContent || ''
+                        const textBefore = text.slice(0, offset)
+
+                        const mdMatch = textBefore.match(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|www\.[^\s)]+)\)$/)
+                        if (mdMatch) {
+                            e.preventDefault()
+                            const fullMatch = mdMatch[0]
+                            const title = mdMatch[1]
+                            const rawUrl = mdMatch[2]
+                            const href = rawUrl.startsWith('www.') ? `https://${rawUrl}` : rawUrl
+                            const matchStart = offset - fullMatch.length
+
+                            const beforeText = text.slice(0, matchStart)
+                            const afterText = text.slice(offset)
+
+                            const a = document.createElement('a')
+                            a.href = href
+                            a.target = '_blank'
+                            a.rel = 'noopener noreferrer'
+                            a.textContent = title.length > 100 ? title.slice(0, 100) + '...' : title
+
+                            const space = document.createTextNode('\u00A0')
+
+                            const parent = anchorNode.parentNode
+                            if (parent) {
+                                const beforeNode = document.createTextNode(beforeText)
+                                const afterNode = document.createTextNode(afterText)
+
+                                parent.insertBefore(beforeNode, anchorNode)
+                                parent.insertBefore(a, anchorNode)
+                                parent.insertBefore(space, anchorNode)
+                                parent.insertBefore(afterNode, anchorNode)
+                                parent.removeChild(anchorNode)
+
+                                const range = document.createRange()
+                                range.setStartAfter(space)
+                                range.collapse(true)
+                                selection.removeAllRanges()
+                                selection.addRange(range)
+
+                                if (onChange && editorRef.current) {
+                                    if (isInternalUpdate) isInternalUpdate.current = true
+                                    onChange(editorRef.current.innerHTML)
+                                }
+                                handleSelectionChange?.()
+                                return
+                            }
+                        }
+
+                        const urlMatch = textBefore.match(/(?:^|\s)(https?:\/\/[^\s]+|www\.[^\s]+)$/i)
+                        if (urlMatch) {
+                            const rawUrl = urlMatch[1]
+                            const href = rawUrl.startsWith('www.') ? `https://${rawUrl}` : rawUrl
+
+                            let isInsideA = false
+                            let p: Node | null = anchorNode
+                            while (p && p !== editorRef.current) {
+                                if (p.nodeType === Node.ELEMENT_NODE && (p as HTMLElement).tagName.toLowerCase() === 'a') {
+                                    isInsideA = true
+                                    break
+                                }
+                                p = p.parentNode
+                            }
+
+                            if (!isInsideA) {
+                                e.preventDefault()
+                                const matchStart = offset - rawUrl.length
+                                const beforeText = text.slice(0, matchStart)
+                                const afterText = text.slice(offset)
+
+                                const a = document.createElement('a')
+                                a.href = href
+                                a.target = '_blank'
+                                a.rel = 'noopener noreferrer'
+                                a.textContent = rawUrl.length > 100 ? rawUrl.slice(0, 100) + '...' : rawUrl
+
+                                const space = document.createTextNode('\u00A0')
+
+                                const parent = anchorNode.parentNode
+                                if (parent) {
+                                    const beforeNode = document.createTextNode(beforeText)
+                                    const afterNode = document.createTextNode(afterText)
+
+                                    parent.insertBefore(beforeNode, anchorNode)
+                                    parent.insertBefore(a, anchorNode)
+                                    parent.insertBefore(space, anchorNode)
+                                    parent.insertBefore(afterNode, anchorNode)
+                                    parent.removeChild(anchorNode)
+
+                                    const range = document.createRange()
+                                    range.setStartAfter(space)
+                                    range.collapse(true)
+                                    selection.removeAllRanges()
+                                    selection.addRange(range)
+
+                                    if (onChange && editorRef.current) {
+                                        if (isInternalUpdate) isInternalUpdate.current = true
+                                        onChange(editorRef.current.innerHTML)
+                                    }
+                                    handleSelectionChange?.()
+                                    return
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (e.key === 'Enter' && !e.shiftKey) {
                 const selection = window.getSelection()
                 if (selection && selection.rangeCount > 0 && editorRef?.current) {

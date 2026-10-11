@@ -23,17 +23,19 @@ services:
     expose:
       - "8000"
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-password123}@mongodb:27017/?authSource=admin
-      - SECRET_KEY=${SECRET_KEY:-change-this-ultra-secure-key-in-production-random-64-characters}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
-      - EMAILS_ENABLED=${EMAILS_ENABLED:-true}
-      - SMTP_HOST=${SMTP_HOST:-mailpit}
-      - SMTP_PORT=${SMTP_PORT:-1025}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-noreply@nottex.com}
-      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Nottex}
+      ENVIRONMENT: production
+      DATABASE_URL: mongodb://nottex_app:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD to a random hex value}@mongodb:27017/?authSource=admin
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY to a cryptographically random secret}
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL to the public application URL}
+      EMAILS_ENABLED: ${EMAILS_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST to your production SMTP provider}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:?Set SMTP_USER for your production SMTP provider}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD for your production SMTP provider}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@nottex.com}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Nottex}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -41,34 +43,24 @@ services:
       - nottex-network
 
   mongodb:
-    image: mongo:latest
+    image: mongo:8.0
     container_name: nottex-mongodb
     restart: unless-stopped
-    ports:
-      - "${MONGO_PORT:-27017}:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-password123}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-nottex_root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?Set MONGO_INITDB_ROOT_PASSWORD to a random secret}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD to a random hex value}
     volumes:
       - mongodb_data:/data/db
+      - ./deploy/mongo-init/01-create-app-user.sh:/docker-entrypoint-initdb.d/01-create-app-user.sh:ro
     healthcheck:
-      test: ["CMD", "mongosh", "-u", "${MONGO_INITDB_ROOT_USERNAME:-admin}", "-p", "${MONGO_INITDB_ROOT_PASSWORD:-password123}", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      test:
+        - CMD-SHELL
+        - mongosh --quiet --username "$$MONGO_INITDB_ROOT_USERNAME" --password "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping').ok" | grep -q 1
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
-    networks:
-      - nottex-network
-
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: nottex-mailpit
-    restart: unless-stopped
-    ports:
-      - "${MAILPIT_SMTP_PORT:-1025}:1025"
-      - "${MAILPIT_UI_PORT:-8025}:8025"
-    environment:
-      MP_MAX_MESSAGES: 500
+      start_period: 10s
     networks:
       - nottex-network
 

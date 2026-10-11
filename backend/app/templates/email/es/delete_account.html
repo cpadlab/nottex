@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    
+    <meta charset="utf-8">
+    <title>Confirmación de eliminación de cuenta</title>
+
+</head>
+<body>
+    
+    <h1>Confirmación para eliminar tu cuenta en {{ app_name }}</h1>
+    <p>Hola {{ first_name }},</p>
+    <p>Hemos recibido una solicitud para eliminar permanentemente tu cuenta y todos tus datos (espacios de trabajo, notas y colaboraciones) de {{ app_name }}.</p>
+    <p><strong>Esta acción es irreversible y no se podrá deshacer.</strong></p>
+    <p>Para confirmar y proceder con la eliminación definitiva de tu cuenta, haz clic en el siguiente enlace:</p>
+    <p><a href="{{ delete_url }}" style="background-color: #e53e3e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Eliminar mi cuenta definitivamente</a></p>
+    <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+    <p>{{ delete_url }}</p>
+    <p>Este enlace expirará en 24 horas.</p>
+    <p>Si tú no has solicitado eliminar tu cuenta, por favor ignora este correo. Tu cuenta seguirá estando protegida.</p>
+
+</body>
+</html>

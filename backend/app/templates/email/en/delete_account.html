@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>Confirm Account Deletion</title>
+
+</head>
+<body>
+    
+    <h1>Confirm deletion of your {{ app_name }} account</h1>
+    <p>Hello {{ first_name }},</p>
+    <p>We received a request to permanently delete your account and all associated data (workspaces, notes, and collaborations) from {{ app_name }}.</p>
+    <p><strong>This action is irreversible and cannot be undone.</strong></p>
+    <p>To confirm and permanently delete your account, click the link below:</p>
+    <p><a href="{{ delete_url }}" style="background-color: #e53e3e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Permanently Delete My Account</a></p>
+    <p>If the button doesn't work, copy and paste this URL into your browser:</p>
+    <p>{{ delete_url }}</p>
+    <p>This confirmation link will expire in 24 hours.</p>
+    <p>If you did not request this deletion, please ignore this email. Your account remains completely secure.</p>
+
+</body>
+</html>

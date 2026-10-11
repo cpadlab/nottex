@@ -532,6 +532,11 @@ class NoteController:
                 break
 
         if not updated:
+            if len(collaborators) >= settings.MAX_COLLABORATORS_PER_NOTE:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="error.collaborator_limit_reached",
+                )
             collaborators.append({
                 "user_id": recipient["id"],
                 "email": payload.email,

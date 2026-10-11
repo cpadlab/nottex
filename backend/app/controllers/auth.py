@@ -421,7 +421,7 @@ class AuthController:
         """
         Handles resending verification email logic:
         - Verifies user exists and email is not yet verified
-        - Enforces 15-minute cooldown between requests
+        - Applies request and email rate limits at the API boundary
         - Generates new token and dispatches email via asyncio background task
         """
         if not db.is_connected:
@@ -434,29 +434,14 @@ class AuthController:
 
         user = await users_collection.find_one({"email": payload.email})
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="error.user_not_found",
+            return ResendVerificationResponse(
+                message="auth.verification_email_sent",
             )
 
         if user.get("is_verified") is True:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="error.email_already_verified",
+            return ResendVerificationResponse(
+                message="auth.verification_email_sent",
             )
-
-        last_sent = user.get("verification_email_sent_at")
-        if last_sent:
-            if last_sent.tzinfo is None:
-                last_sent = last_sent.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
-            elapsed = now - last_sent
-            cooldown = timedelta(minutes=settings.RESEND_VERIFICATION_COOLDOWN_MINUTES)
-            if elapsed < cooldown:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="error.resend_cooldown_active",
-                )
 
         now = datetime.now(timezone.utc)
         token = generate_verification_token()
@@ -558,7 +543,7 @@ class AuthController:
         Initiates password recovery:
         - Checks database connection
         - Finds user by normalized email
-        - Enforces rate limiting cooldown (15 minutes between recovery requests)
+        - Applies request and email rate limits at the API boundary
         - Generates temporal reset token (expires in 60 minutes)
         - Dispatches localized email with reset link in background via asyncio
         - Returns success message without leaking existence for security
@@ -576,19 +561,6 @@ class AuthController:
             return ForgotPasswordResponse(
                 message="auth.forgot_password_email_sent",
             )
-
-        last_requested = user.get("password_reset_sent_at")
-        if last_requested:
-            if last_requested.tzinfo is None:
-                last_requested = last_requested.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
-            elapsed = now - last_requested
-            cooldown = timedelta(minutes=settings.PASSWORD_RESET_COOLDOWN_MINUTES)
-            if elapsed < cooldown:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="error.resend_cooldown_active",
-                )
 
         now = datetime.now(timezone.utc)
         token = generate_verification_token()

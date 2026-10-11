@@ -21,6 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await db.connect()
         await db.users["users"].create_index("email", unique=True)
+        await db.users["rate_limits"].create_index("expires_at", expireAfterSeconds=0)
         await db.notes["workspaces"].create_index([("user_id", 1), ("parent_id", 1)])
         await db.notes["notes"].create_index([("user_id", 1), ("workspace_id", 1)])
         token_cleanup_service.start()

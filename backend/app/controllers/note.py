@@ -111,10 +111,13 @@ class NoteController:
     def _can_read(note_doc: dict, user_id: Optional[str]) -> bool:
         """
         Determines whether the user can read the note:
-        - True if note is public
         - True if user is the owner
+        - Notes in trash are private to their owner
+        - True if note is public (when not trashed)
         - True if user is in collaborators list
         """
+        if note_doc.get("is_trashed") is True:
+            return bool(user_id) and note_doc.get("user_id") == user_id
         if note_doc.get("is_public") is True:
             return True
         if not user_id:
@@ -730,9 +733,17 @@ class NoteController:
             while True:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=25.0)
-                    yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
+                    current_doc = await notes_col.find_one({"id": note_id})
+                    if not current_doc or not NoteController._can_read(current_doc, user_id):
+                        break
                     yield ": keep-alive\n\n"
+                    continue
+
+                current_doc = await notes_col.find_one({"id": note_id})
+                if not current_doc or not NoteController._can_read(current_doc, user_id):
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
         finally:
             await note_broadcaster.unsubscribe(note_id, queue)
 

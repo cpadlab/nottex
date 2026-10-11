@@ -79,6 +79,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.code",
             value: "code",
             isActive: isCodeXml,
+            shortcut: [mod, "Shift", "C"],
             onClick: onCodeXml,
         },
         { 

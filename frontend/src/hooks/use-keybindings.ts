@@ -17,6 +17,7 @@ export interface UseKeybindingsOptions {
     onListTodo?: () => void
     onListIndentIncrease?: () => void
     onListIndentDecrease?: () => void
+    onCodeXml?: () => void
     detectCurrentFormat?: () => TextFormat
     handleSelectionChange?: () => void
     onChange?: (html: string) => void
@@ -45,6 +46,7 @@ export const useKeybindings = ({
     onListTodo,
     onListIndentIncrease,
     onListIndentDecrease,
+    onCodeXml,
     detectCurrentFormat,
     handleSelectionChange,
     onChange,
@@ -114,6 +116,12 @@ export const useKeybindings = ({
                 if (e.key === ']') {
                     e.preventDefault()
                     onListIndentIncrease?.()
+                    return
+                }
+
+                if ((e.shiftKey || e.altKey) && (key === 'c' || e.code === 'KeyC')) {
+                    e.preventDefault()
+                    onCodeXml?.()
                     return
                 }
 
@@ -305,6 +313,7 @@ export const useKeybindings = ({
             onListTodo,
             onListIndentIncrease,
             onListIndentDecrease,
+            onCodeXml,
             detectCurrentFormat,
             handleSelectionChange,
             onChange,

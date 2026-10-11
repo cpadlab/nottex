@@ -171,6 +171,19 @@ export const useEditor = (options?: UseEditorOptions) => {
                 detectedListOrdered = document.queryCommandState("insertOrderedList")
             }
 
+            let detectedCodeXml = false
+            let checkNode: Node | null = selection.anchorNode
+            while (checkNode && checkNode !== editorRef.current) {
+                if (checkNode.nodeType === Node.ELEMENT_NODE) {
+                    const el = checkNode as HTMLElement
+                    if (el.getAttribute("data-type") === "code-block") {
+                        detectedCodeXml = true
+                        break
+                    }
+                }
+                checkNode = checkNode.parentNode
+            }
+
             setState((prev) => {
                 if (
                     prev.textFormatting === detected &&
@@ -183,7 +196,8 @@ export const useEditor = (options?: UseEditorOptions) => {
                     prev.textAlign === detectedAlign &&
                     prev.isList === detectedList &&
                     prev.isListOrdered === detectedListOrdered &&
-                    prev.isListTodo === detectedListTodo
+                    prev.isListTodo === detectedListTodo &&
+                    prev.isCodeXml === detectedCodeXml
                 ) {
                     return prev
                 }
@@ -200,6 +214,7 @@ export const useEditor = (options?: UseEditorOptions) => {
                     isList: detectedList,
                     isListOrdered: detectedListOrdered,
                     isListTodo: detectedListTodo,
+                    isCodeXml: detectedCodeXml,
                 }
             })
         }
@@ -710,6 +725,84 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onToggleTodoList?.()
     }, [options, handleSelectionChange])
 
+    const onCodeXml = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        editor.focus()
+        const selection = window.getSelection()
+        if (!selection) return
+
+        let existingCodeBlock: HTMLElement | null = null
+        if (selection.rangeCount > 0) {
+            let node: Node | null = selection.anchorNode
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).getAttribute("data-type") === "code-block") {
+                    existingCodeBlock = node as HTMLElement
+                    break
+                }
+                node = node.parentNode
+            }
+        }
+
+        if (existingCodeBlock) {
+            return
+        }
+
+        const selectedText = selection.rangeCount > 0 ? selection.toString() : ""
+        const initialCode = selectedText || ""
+
+        const codeContainer = document.createElement("div")
+        codeContainer.setAttribute("data-type", "code-block")
+        codeContainer.setAttribute("data-code", initialCode)
+        codeContainer.setAttribute("contenteditable", "false")
+
+        const pre = document.createElement("pre")
+        pre.setAttribute("data-raw-code", "")
+        pre.setAttribute("style", "display:none;")
+        pre.textContent = initialCode
+        codeContainer.appendChild(pre)
+
+        let targetBlock: HTMLElement | null = null
+        if (selection.rangeCount > 0) {
+            let node: Node | null = selection.anchorNode
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    targetBlock = node as HTMLElement
+                }
+                node = node.parentNode
+            }
+        }
+
+        const nextP = document.createElement("p")
+        nextP.innerHTML = "<br>"
+
+        if (targetBlock && targetBlock !== editor) {
+            const isTargetEmpty = targetBlock.textContent?.trim() === ""
+            if (isTargetEmpty && !targetBlock.querySelector("img, video")) {
+                targetBlock.replaceWith(codeContainer)
+                codeContainer.after(nextP)
+            } else {
+                targetBlock.after(codeContainer)
+                codeContainer.after(nextP)
+            }
+        } else {
+            editor.appendChild(codeContainer)
+            editor.appendChild(nextP)
+        }
+
+        const inputEvent = new Event("input", { bubbles: true })
+        editor.dispatchEvent(inputEvent)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleCodeXml?.()
+    }, [options, handleSelectionChange, editorRef, isInternalUpdate])
+
     const { handleKeyDown } = useKeybindings({
         onBold,
         onItalic,
@@ -726,6 +819,7 @@ export const useEditor = (options?: UseEditorOptions) => {
         onListTodo,
         onListIndentIncrease,
         onListIndentDecrease,
+        onCodeXml,
         detectCurrentFormat,
         handleSelectionChange,
         onChange: options?.onChange,
@@ -788,11 +882,6 @@ export const useEditor = (options?: UseEditorOptions) => {
     const onQuote = useCallback(() => {
         setState((prev) => ({ ...prev, isQuote: !prev.isQuote }))
         options?.onToggleQuote?.()
-    }, [options])
-
-    const onCodeXml = useCallback(() => {
-        setState((prev) => ({ ...prev, isCodeXml: !prev.isCodeXml }))
-        options?.onToggleCodeXml?.()
     }, [options])
 
     const onBaseline = useCallback((color?: string) => {

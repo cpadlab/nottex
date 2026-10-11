@@ -4,11 +4,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { CodeXmlIcon, QuoteIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useEditorContext } from '@/contexts/editor-context'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { getModifierKey } from '@/hooks/use-keybindings'
 
 export interface FormatButton {
     icon: LucideIcon
     label: string
     isActive: boolean
+    shortcut?: string[]
     onClick: () => void
 }
 
@@ -16,6 +19,7 @@ export const BlockInsertionButtons = () => {
 
     const { t: translation } = useTranslation()
     const { isQuote, onQuote, isCodeXml, onCodeXml } = useEditorContext()
+    const mod = getModifierKey()
 
     const buttons: FormatButton[] = [
         { 
@@ -28,6 +32,7 @@ export const BlockInsertionButtons = () => {
             icon: CodeXmlIcon, 
             label: "editor.toolbar.code",
             isActive: isCodeXml,
+            shortcut: [mod, "Shift", "C"],
             onClick: onCodeXml,
         },
     ]
@@ -41,8 +46,15 @@ export const BlockInsertionButtons = () => {
                         <item.icon />
                     </TooltipTrigger>
                     
-                    <TooltipContent>
-                        <p>{translation(item.label)}</p>
+                    <TooltipContent className="flex items-center">
+                        <span>{translation(item.label)}</span>
+                        {item.shortcut && (
+                            <KbdGroup>
+                                {item.shortcut.map((key) => (
+                                    <Kbd key={key}>{key}</Kbd>
+                                ))}
+                            </KbdGroup>
+                        )}
                     </TooltipContent>
                     
                 </Tooltip>

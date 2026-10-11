@@ -39,6 +39,7 @@ from app.shared.account_deletion import process_account_deletion
 from app.shared.emailer import emailer
 from app.shared.logger import get_logger
 from app.shared.security import (
+    decrypt_note_document,
     create_access_token,
     decode_access_token,
     decrypt_totp_secret,
@@ -1493,6 +1494,7 @@ class AuthController:
         notes_cursor = notes_col.find({"user_id": user_id})
         notes_export = []
         async for n in notes_cursor:
+            n = decrypt_note_document(n)
             notes_export.append({
                 "id": n["id"],
                 "title": n.get("title", ""),
@@ -1512,6 +1514,7 @@ class AuthController:
         shared_cursor = notes_col.find({"collaborators.user_id": user_id})
         shared_export = []
         async for sn in shared_cursor:
+            sn = decrypt_note_document(sn)
             shared_export.append({
                 "id": sn["id"],
                 "title": sn.get("title", ""),

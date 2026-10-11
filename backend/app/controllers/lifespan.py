@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.shared.cleanup import token_cleanup_service
 from app.shared.logger import get_logger
 from app.shared.database import db
-from app.shared.security import migrate_legacy_totp_secrets
+from app.shared.security import migrate_legacy_totp_secrets, migrate_legacy_note_fields
 from app.core.config import settings
 
 logger = get_logger(__name__)
@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await db.connect()
         await migrate_legacy_totp_secrets(db.users["users"])
+        await migrate_legacy_note_fields(db.notes["notes"])
         await db.users["users"].create_index("email", unique=True)
         for token_field in ("verification_token", "password_reset_token", "delete_account_token"):
             await db.users["users"].create_index(

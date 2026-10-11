@@ -1,7 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
 import json
-import re
 from typing import AsyncGenerator, List, Optional
 import uuid
 
@@ -23,6 +22,7 @@ from app.shared.broadcaster import note_broadcaster, user_broadcaster
 from app.shared.database import db
 from app.shared.emailer import emailer
 from app.shared.logger import get_logger
+from app.shared.security import decrypt_note_document, decrypt_note_field, encrypt_note_field
 
 logger = get_logger(__name__)
 
@@ -145,6 +145,7 @@ class NoteController:
 
     @staticmethod
     def _doc_to_response(doc: dict, current_user_id: Optional[str] = None) -> NoteResponse:
+        doc = decrypt_note_document(doc)
         is_owner = doc["user_id"] == current_user_id if current_user_id else False
         my_perm = "owner" if is_owner else "viewer"
         if not is_owner and current_user_id:
@@ -206,7 +207,13 @@ class NoteController:
             "updated_at": now,
         }
 
-        await notes_col.insert_one(doc)
+        stored_doc = {
+            **doc,
+            "title": encrypt_note_field(doc["title"]),
+            "content": encrypt_note_field(doc["content"]),
+            "encryption_version": 1,
+        }
+        await notes_col.insert_one(stored_doc)
         logger.info(f"Note {note_id} created by user {user_id}")
         resp = NoteController._doc_to_response(doc, user_id)
 
@@ -257,9 +264,11 @@ class NoteController:
         update_fields = {}
 
         if payload.title is not None:
-            update_fields["title"] = payload.title
+            update_fields["title"] = encrypt_note_field(payload.title)
         if payload.content is not None:
-            update_fields["content"] = payload.content
+            update_fields["content"] = encrypt_note_field(payload.content)
+        if "title" in update_fields or "content" in update_fields:
+            update_fields["encryption_version"] = 1
         if payload.color is not None:
             update_fields["color"] = payload.color
         if payload.is_pinned is not None:
@@ -448,6 +457,8 @@ class NoteController:
                 detail="error.note_access_denied",
             )
 
+        doc = decrypt_note_document(doc)
+
         dest_ws = payload.workspace_id if payload.workspace_id is not None else doc.get("workspace_id")
         if dest_ws:
             ws = await workspaces_col.find_one({"user_id": user_id, "id": dest_ws})
@@ -464,8 +475,9 @@ class NoteController:
             "_id": new_note_id,
             "id": new_note_id,
             "user_id": user_id,
-            "title": new_title,
-            "content": doc.get("content", ""),
+            "title": encrypt_note_field(new_title),
+            "content": encrypt_note_field(doc.get("content", "")),
+            "encryption_version": 1,
             "color": doc.get("color"),
             "is_pinned": False,
             "is_trashed": False,
@@ -514,6 +526,8 @@ class NoteController:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="error.only_owner_can_share_note",
             )
+
+        note = decrypt_note_document(note)
 
         recipient = await users_col.find_one({"email": payload.email})
         if not recipient:
@@ -648,21 +662,9 @@ class NoteController:
         if tag:
             query_filters.append({"tags": tag.strip().lower()})
 
-        if search:
-            normalized_search = search.strip()
-            if len(normalized_search) > settings.MAX_NOTE_SEARCH_LENGTH:
-                raise HTTPException(status_code=422, detail="error.search_query_too_long")
-            if not normalized_search:
-                search = None
-        if search:
-            escaped_search = re.escape(search.strip())
-            search_regex = {"$regex": escaped_search, "$options": "i"}
-            query_filters.append({
-                "$or": [
-                    {"title": search_regex},
-                    {"content": search_regex},
-                ]
-            })
+        normalized_search = search.strip() if search else ""
+        if len(normalized_search) > settings.MAX_NOTE_SEARCH_LENGTH:
+            raise HTTPException(status_code=422, detail="error.search_query_too_long")
 
         final_query = {"$and": query_filters}
 
@@ -670,17 +672,45 @@ class NoteController:
         sort_field = sort_by if sort_by in valid_sort_fields else "updated_at"
         order = -1 if sort_order == -1 else 1
 
-        total = await notes_col.count_documents(final_query, maxTimeMS=3000)
         skip = max(0, (page - 1) * page_size)
-
-        cursor = (
-            notes_col.find(final_query)
-            .sort(sort_field, order)
-            .skip(skip)
-            .limit(page_size)
-            .max_time_ms(3000)
-        )
-        docs = await cursor.to_list(length=page_size)
+        if normalized_search or sort_field == "title":
+            matches = []
+            scanned_bytes = 0
+            scanned_records = 0
+            needle = normalized_search.casefold()
+            cursor = notes_col.find(final_query).limit(settings.MAX_NOTE_SEARCH_SCAN + 1).max_time_ms(3000)
+            async for raw_doc in cursor:
+                scanned_records += 1
+                if scanned_records > settings.MAX_NOTE_SEARCH_SCAN:
+                    raise HTTPException(status_code=422, detail="error.note_list_scope_too_large")
+                if normalized_search:
+                    plain_doc = decrypt_note_document(raw_doc)
+                    title = plain_doc.get("title") or ""
+                    content = plain_doc.get("content") or ""
+                    scanned_bytes += len(title.encode("utf-8")) + len(content.encode("utf-8"))
+                    if scanned_bytes > settings.MAX_NOTE_SEARCH_BYTES:
+                        raise HTTPException(status_code=422, detail="error.note_list_scope_too_large")
+                    if needle not in title.casefold() and needle not in content.casefold():
+                        continue
+                    sort_value = plain_doc.get(sort_field) if sort_field != "title" else title.casefold()
+                else:
+                    sort_value = decrypt_note_field(raw_doc.get("title", "")).casefold()
+                matches.append((sort_value or "", raw_doc["id"]))
+            matches.sort(key=lambda item: item[0], reverse=order < 0)
+            total = len(matches)
+            selected_ids = [note_id for _, note_id in matches[skip:skip + page_size]]
+            if selected_ids:
+                page_docs = await notes_col.find(
+                    {"$and": [final_query, {"id": {"$in": selected_ids}}]}
+                ).to_list(length=len(selected_ids))
+                docs_by_id = {doc["id"]: decrypt_note_document(doc) for doc in page_docs}
+                docs = [docs_by_id[note_id] for note_id in selected_ids if note_id in docs_by_id]
+            else:
+                docs = []
+        else:
+            total = await notes_col.count_documents(final_query, maxTimeMS=3000)
+            cursor = notes_col.find(final_query).sort(sort_field, order).skip(skip).limit(page_size).max_time_ms(3000)
+            docs = [decrypt_note_document(doc) async for doc in cursor]
 
         items = [NoteController._doc_to_response(d, user_id) for d in docs]
         pages = max(1, (total + page_size - 1) // page_size)

@@ -3,6 +3,7 @@ import hashlib
 import json
 import base64
 import secrets
+from functools import lru_cache
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -135,6 +136,81 @@ async def migrate_legacy_totp_secrets(users_collection) -> int:
             migrated += result.modified_count
     if migrated:
         logger.warning("Encrypted legacy plaintext TOTP secrets during startup: %s", migrated)
+    return migrated
+
+
+@lru_cache(maxsize=1)
+def _note_fernet():
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError as exc:
+        raise RuntimeError("cryptography is required to protect note content") from exc
+
+    key = settings.NOTE_ENCRYPTION_KEY
+    if not key:
+        if settings.ENVIRONMENT.lower() == "production":
+            raise RuntimeError("NOTE_ENCRYPTION_KEY must be configured in production")
+        key = base64.urlsafe_b64encode(
+            hashlib.sha256(b"nottex:notes:v1:" + settings.SECRET_KEY.encode("utf-8")).digest()
+        ).decode("ascii")
+    return Fernet(key.encode("ascii"))
+
+
+def encrypt_note_field(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return _note_fernet().encrypt(value.encode("utf-8")).decode("ascii")
+
+
+def decrypt_note_field(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return value
+    from cryptography.fernet import InvalidToken
+
+    try:
+        return _note_fernet().decrypt(value.encode("ascii")).decode("utf-8")
+    except (InvalidToken, UnicodeDecodeError, UnicodeEncodeError, ValueError) as exc:
+        raise RuntimeError("Unable to decrypt note data; check NOTE_ENCRYPTION_KEY") from exc
+
+
+def decrypt_note_document(doc: Optional[dict]) -> Optional[dict]:
+    if doc is None:
+        return None
+    result = dict(doc)
+    if result.get("encryption_version") == 1:
+        for field in ("title", "content"):
+            result[field] = decrypt_note_field(result.get(field, ""))
+        result.pop("encryption_version", None)
+    return result
+
+
+async def migrate_legacy_note_fields(notes_collection) -> int:
+    """Encrypt plaintext titles and bodies before the API accepts traffic."""
+    cursor = notes_collection.find(
+        {"encryption_version": {"$ne": 1}},
+        {"title": 1, "content": 1},
+    )
+    migrated = 0
+    async for note in cursor:
+        updates = {}
+        originals = {}
+        for field in ("title", "content"):
+            value = note.get(field)
+            plaintext = value if isinstance(value, str) else ""
+            updates[field] = encrypt_note_field(plaintext)
+            if field in note:
+                originals[field] = value
+        updates["encryption_version"] = 1
+        selector = {"_id": note["_id"], "encryption_version": {"$ne": 1}, **originals}
+        result = await notes_collection.update_one(selector, {"$set": updates})
+        migrated += result.modified_count
+    if migrated:
+        logger.warning("Encrypted legacy plaintext note fields during startup: %s", migrated)
+    encrypted_sample = await notes_collection.find_one(
+        {"encryption_version": 1}, {"title": 1, "content": 1, "encryption_version": 1}
+    )
+    if encrypted_sample:
+        decrypt_note_document(encrypted_sample)
     return migrated
 
 

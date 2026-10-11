@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = ""
     TOTP_ENCRYPTION_KEY: Optional[str] = None
+    NOTE_ENCRYPTION_KEY: Optional[str] = None
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 12
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
@@ -61,6 +62,8 @@ class Settings(BaseSettings):
 
     MAX_COLLABORATORS_PER_NOTE: int = 50
     MAX_NOTE_SEARCH_LENGTH: int = 128
+    MAX_NOTE_SEARCH_SCAN: int = 10000
+    MAX_NOTE_SEARCH_BYTES: int = 67108864
     MAX_REQUEST_BODY_BYTES: int = 2 * 1024 * 1024
     MAX_NOTE_CONTENT_BYTES: int = 1024 * 1024
     MAX_TAGS_PER_NOTE: int = 50
@@ -89,6 +92,10 @@ class Settings(BaseSettings):
             raise ValueError("Note list and collaborator limits must be positive")
         if self.MAX_NOTE_SEARCH_LENGTH <= 0:
             raise ValueError("Note search length limit must be positive")
+        if self.MAX_NOTE_SEARCH_SCAN <= 0:
+            raise ValueError("Note search scan limit must be positive")
+        if self.MAX_NOTE_SEARCH_BYTES <= 0:
+            raise ValueError("Note search byte limit must be positive")
         if (
             self.SSE_MAX_CONNECTIONS_PER_PROCESS <= 0
             or self.SSE_MAX_CONNECTIONS_PER_USER <= 0
@@ -103,6 +110,12 @@ class Settings(BaseSettings):
                 Fernet(self.TOTP_ENCRYPTION_KEY.encode("ascii"))
             except Exception as exc:
                 raise ValueError("TOTP_ENCRYPTION_KEY must be a valid Fernet key") from exc
+        if self.NOTE_ENCRYPTION_KEY:
+            try:
+                from cryptography.fernet import Fernet
+                Fernet(self.NOTE_ENCRYPTION_KEY.encode("ascii"))
+            except Exception as exc:
+                raise ValueError("NOTE_ENCRYPTION_KEY must be a valid Fernet key") from exc
 
         if not self.CORS_ALLOW_ORIGINS or "*" in self.CORS_ALLOW_ORIGINS:
             raise ValueError("CORS_ALLOW_ORIGINS must contain explicit origins and cannot contain '*'")
@@ -130,6 +143,8 @@ class Settings(BaseSettings):
                 raise ValueError("DEBUG must be false in production")
             if not self.TOTP_ENCRYPTION_KEY:
                 raise ValueError("TOTP_ENCRYPTION_KEY must be set in production (generate with Fernet.generate_key())")
+            if not self.NOTE_ENCRYPTION_KEY:
+                raise ValueError("NOTE_ENCRYPTION_KEY must be set in production (generate with Fernet.generate_key())")
             if any(urlsplit(origin).scheme != "https" for origin in self.CORS_ALLOW_ORIGINS):
                 raise ValueError("Production CORS origins must use HTTPS")
             if "localhost" in self.FRONTEND_URL or "127.0.0.1" in self.FRONTEND_URL:

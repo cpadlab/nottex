@@ -86,7 +86,7 @@ async def list_notes(
     page_size: int = Query(20, ge=1, le=100),
     current_user: UserResponse = Depends(get_required_user_dep),
 ):
-    if search and search.strip():
+    if (search and search.strip()) or sort_by == "title":
         await limit_ip(request, "note_search", limit=30, window_seconds=60)
         await limit_account("note_search", current_user.id, limit=30, window_seconds=60)
     return await NoteController.list_notes(

@@ -13,7 +13,15 @@
             "home": "Inicio",
             "workspace": "Workspace"
         },
-        "untitled": "Sin título"
+        "untitled": "Sin título",
+        "actions": {
+            "pin": "Fijar nota",
+            "unpin": "Desfijar nota",
+            "copy": "Crear una copia",
+            "search": "Buscar en el texto",
+            "background": "Opciones de fondo",
+            "tags": "Etiquetas"
+        }
     },
     "editor": {
         "placeholder": "Empiece a escribir su nota aquí...",

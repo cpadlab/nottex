@@ -13,7 +13,15 @@
             "home": "Home",
             "workspace": "Workspace"
         },
-        "untitled": "Untitled"
+        "untitled": "Untitled",
+        "actions": {
+            "pin": "Pin note",
+            "unpin": "Unpin note",
+            "copy": "Create a copy",
+            "search": "Search in text",
+            "background": "Background options",
+            "tags": "Tags"
+        }
     },
     "editor": {
         "placeholder": "Start writing your note here...",

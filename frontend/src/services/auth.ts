@@ -3,20 +3,32 @@ import type {
     AuthResponse,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    LoginRequest,
     RegisterRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    TotpDisableRequest,
+    TotpSetupResponse,
+    TotpStatusResponse,
+    TotpVerifyRequest,
     User,
     VerifyEmailRequest,
     VerifyEmailResponse,
 } from "@/types/auth";
 
 export const authService = {
-    
     async register(data: RegisterRequest): Promise<AuthResponse> {
         const response = await api.post<AuthResponse>("/auth/register", data);
+        if (response.data.access_token) {
+            localStorage.setItem("access_token", response.data.access_token);
+        }
+        return response.data;
+    },
+
+    async login(data: LoginRequest): Promise<AuthResponse> {
+        const response = await api.post<AuthResponse>("/auth/login", data);
         if (response.data.access_token) {
             localStorage.setItem("access_token", response.data.access_token);
         }
@@ -48,11 +60,29 @@ export const authService = {
         return response.data;
     },
 
+    async getTotpStatus(): Promise<TotpStatusResponse> {
+        const response = await api.get<TotpStatusResponse>("/auth/totp/status");
+        return response.data;
+    },
+
+    async setupTotp(): Promise<TotpSetupResponse> {
+        const response = await api.post<TotpSetupResponse>("/auth/totp/setup");
+        return response.data;
+    },
+
+    async verifyTotp(data: TotpVerifyRequest): Promise<TotpStatusResponse> {
+        const response = await api.post<TotpStatusResponse>("/auth/totp/verify", data);
+        return response.data;
+    },
+
+    async disableTotp(data: TotpDisableRequest): Promise<TotpStatusResponse> {
+        const response = await api.post<TotpStatusResponse>("/auth/totp/disable", data);
+        return response.data;
+    },
+
     logout(): void {
         localStorage.removeItem("access_token");
     },
-    
 };
 
 export default authService;
-

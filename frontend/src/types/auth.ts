@@ -5,6 +5,7 @@ export interface User {
     last_name: string;
     language: string;
     is_verified: boolean;
+    is_totp_enabled?: boolean;
     last_login: string | null;
     created_at: string;
     updated_at: string;
@@ -18,11 +19,18 @@ export interface RegisterRequest {
     language?: string;
 }
 
+export interface LoginRequest {
+    email: string;
+    password: string;
+    totp_code?: string;
+}
+
 export interface AuthResponse {
-    access_token: string;
-    token_type: string;
-    user: User;
-    message: string;
+    access_token?: string | null;
+    token_type?: string;
+    user?: User | null;
+    requires_totp?: boolean;
+    message?: string;
 }
 
 export interface VerifyEmailRequest {
@@ -59,3 +67,20 @@ export interface ResetPasswordResponse {
     message: string;
 }
 
+export interface TotpSetupResponse {
+    secret: string;
+    provisioning_uri: string;
+}
+
+export interface TotpVerifyRequest {
+    code: string;
+}
+
+export interface TotpDisableRequest {
+    password?: string;
+    code?: string;
+}
+
+export interface TotpStatusResponse {
+    is_enabled: boolean;
+}

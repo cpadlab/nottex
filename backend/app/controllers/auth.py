@@ -308,6 +308,7 @@ class AuthController:
             "last_name": payload.last_name,
             "language": payload.language,
             "hashed_password": hashed_pwd,
+            "token_version": 0,
             "is_verified": False,
             "verification_token": token,
             "verification_token_expires_at": token_expires_at,
@@ -335,7 +336,7 @@ class AuthController:
         )
 
         access_token = create_access_token(
-            data={"sub": user_id, "email": payload.email}
+            data={"sub": user_id, "email": payload.email, "ver": 0}
         )
 
         user_response = UserResponse(
@@ -517,6 +518,13 @@ class AuthController:
                 detail="error.user_not_found",
             )
 
+        if payload.get("ver") != user.get("token_version", 0):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.token_invalid_or_expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         return UserResponse(
             id=user["id"],
             email=user["email"],
@@ -536,6 +544,31 @@ class AuthController:
         Returns the profile of the currently authenticated user.
         """
         return await AuthController.get_current_user(token)
+
+    @staticmethod
+    async def logout(user_id: str) -> dict:
+        """
+        Revoke all access tokens issued before this logout.
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        result = await db.users["users"].update_one(
+            {"_id": user_id},
+            {
+                "$inc": {"token_version": 1},
+                "$set": {"updated_at": datetime.now(timezone.utc)},
+            },
+        )
+        if not result.matched_count:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+        return {"message": "auth.logout_success"}
 
     @staticmethod
     async def forgot_password(payload: ForgotPasswordRequest) -> ForgotPasswordResponse:
@@ -638,7 +671,8 @@ class AuthController:
                     "password_reset_token": None,
                     "password_reset_token_expires_at": None,
                     "updated_at": now,
-                }
+                },
+                "$inc": {"token_version": 1},
             },
         )
 
@@ -715,7 +749,7 @@ class AuthController:
 
         user_id = user["id"]
         access_token = create_access_token(
-            data={"sub": user_id, "email": user["email"]}
+            data={"sub": user_id, "email": user["email"], "ver": user.get("token_version", 0)}
         )
 
         user_response = UserResponse(
@@ -1002,7 +1036,8 @@ class AuthController:
                 "$set": {
                     "hashed_password": hashed_pwd,
                     "updated_at": now,
-                }
+                },
+                "$inc": {"token_version": 1},
             },
         )
 
@@ -1091,7 +1126,8 @@ class AuthController:
                         "verification_token": verification_token,
                         "verification_token_expires_at": verification_expires_at,
                         "updated_at": now,
-                    }
+                    },
+                    "$inc": {"token_version": 1},
                 },
                 return_document=True,
             )

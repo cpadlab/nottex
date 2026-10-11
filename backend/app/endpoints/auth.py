@@ -93,6 +93,11 @@ async def me(request: Request, credentials: HTTPAuthorizationCredentials = Depen
     return user
 
 
+@router.post("/logout")
+async def logout(current_user: UserResponse = Depends(get_current_user_dep)):
+    return await AuthController.logout(current_user.id)
+
+
 @router.get("/totp/status", response_model=TotpStatusResponse)
 async def totp_status(request: Request, current_user: UserResponse = Depends(get_current_user_dep)):
     await limit_ip(request, "totp", limit=8, window_seconds=60)

@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 12
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60
     TOKEN_CLEANUP_INTERVAL_MINUTES: int = 60
@@ -93,6 +93,8 @@ class Settings(BaseSettings):
             placeholder_markers = ("change-me", "replace-with", "example", "nottex")
             if len(self.SECRET_KEY) < 64 or any(marker in self.SECRET_KEY.lower() for marker in placeholder_markers):
                 raise ValueError("SECRET_KEY must be at least 64 characters in production (generate with openssl rand -hex 32)")
+            if not 1 <= self.ACCESS_TOKEN_EXPIRE_MINUTES <= 720:
+                raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be between 1 and 720 in production")
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
             if any(urlsplit(origin).scheme != "https" for origin in self.CORS_ALLOW_ORIGINS):

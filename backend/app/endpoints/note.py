@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -46,6 +46,19 @@ async def get_required_user_dep(
     return user
 
 
+async def _guard_sse_session(generator, token: Optional[str], expected_user_id: Optional[str]):
+    """Revalidate authenticated SSE sessions before forwarding each frame."""
+    async for frame in generator:
+        if token:
+            try:
+                current_user = await AuthController.get_current_user(token)
+            except HTTPException:
+                break
+            if current_user.id != expected_user_id:
+                break
+        yield frame
+
+
 @router.post("", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
 async def create_note(
     payload: NoteCreate,
@@ -87,29 +100,22 @@ async def list_notes(
 @router.get("/events/user")
 async def user_events(
     request: Request,
-    token: Optional[str] = Query(None, description="Access token via query param for EventSource support"),
-    user: Optional[UserResponse] = Depends(get_optional_user_dep),
+    user: UserResponse = Depends(get_required_user_dep),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     """
     Global Server-Sent Events (SSE) endpoint to receive realtime updates across all devices
     when a note is created, trashed, restored, deleted or shared.
     """
     await limit_ip(request, "sse_connection", limit=20, window_seconds=60)
-    user_id = user.id if user else None
-    if not user_id and token:
-        try:
-            usr = await AuthController.get_current_user(token)
-            user_id = usr.id
-        except Exception:
-            pass
-
-    if not user_id:
-        return StreamingResponse(iter([]), media_type="text/event-stream")
-
-    await limit_account("sse_connection", user_id, limit=20, window_seconds=60)
-
-    generator = NoteController.subscribe_user_events(user_id)
-    return StreamingResponse(generator, media_type="text/event-stream")
+    generator = _guard_sse_session(
+        NoteController.subscribe_user_events(user.id), credentials.credentials, user.id
+    )
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/by-workspaces", response_model=List[WorkspaceWithNotesResponse])
@@ -204,8 +210,8 @@ async def unshare_note(
 async def note_events(
     note_id: str,
     request: Request,
-    token: Optional[str] = Query(None, description="Access token via query param for EventSource support"),
     user: Optional[UserResponse] = Depends(get_optional_user_dep),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     """
     Server-Sent Events (SSE) endpoint to receive realtime updates when a note is edited
@@ -213,16 +219,14 @@ async def note_events(
     """
     await limit_ip(request, "sse_connection", limit=20, window_seconds=60)
     user_id = user.id if user else None
-    if not user_id and token:
-        try:
-            usr = await AuthController.get_current_user(token)
-            user_id = usr.id
-        except Exception:
-            pass
 
-    if user_id:
-        await limit_account("sse_connection", user_id, limit=20, window_seconds=60)
-
-    generator = NoteController.subscribe_events(note_id, user_id)
-    return StreamingResponse(generator, media_type="text/event-stream")
+    token = credentials.credentials if credentials else None
+    generator = _guard_sse_session(
+        NoteController.subscribe_events(note_id, user_id), token, user_id
+    )
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 

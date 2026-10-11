@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.controllers.auth import AuthController
 from app.controllers.note import NoteController
+from app.core.config import settings
 from app.schemas.note import (
     NoteCreate,
     NoteDuplicateRequest,
@@ -16,9 +17,8 @@ from app.schemas.note import (
     WorkspaceWithNotesResponse,
 )
 from app.schemas.user import UserResponse
-from app.shared.rate_limit import limit_account, limit_authenticated_request, limit_ip
 from app.shared.broadcaster import SSELimitExceeded
-from app.shared.rate_limit import client_ip
+from app.shared.rate_limit import client_ip, limit_account, limit_authenticated_request, limit_ip
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 security = HTTPBearer(auto_error=False)
@@ -74,17 +74,21 @@ async def create_note(
 
 @router.get("", response_model=PaginatedNotesResponse)
 async def list_notes(
+    request: Request,
     workspace_id: Optional[str] = Query(None, description="Filtrar por workspace ID (o 'root' para notas sin carpeta)"),
     is_pinned: Optional[bool] = Query(None, description="Filtrar por notas fijadas"),
     is_trashed: bool = Query(False, description="True para ver la papelera"),
     tag: Optional[str] = Query(None, description="Filtrar por etiqueta específica"),
-    search: Optional[str] = Query(None, description="Búsqueda por texto en título o contenido"),
+    search: Optional[str] = Query(None, max_length=settings.MAX_NOTE_SEARCH_LENGTH, description="Búsqueda por texto en título o contenido"),
     sort_by: str = Query("updated_at", description="Campo para ordenar: updated_at, created_at, title"),
     sort_order: int = Query(-1, description="-1 para descendente (recientes primero), 1 para ascendente"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: UserResponse = Depends(get_required_user_dep),
 ):
+    if search and search.strip():
+        await limit_ip(request, "note_search", limit=30, window_seconds=60)
+        await limit_account("note_search", current_user.id, limit=30, window_seconds=60)
     return await NoteController.list_notes(
         user_id=current_user.id,
         workspace_id=workspace_id,

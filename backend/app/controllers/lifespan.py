@@ -24,12 +24,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await db.connect()
         await migrate_legacy_totp_secrets(db.users["users"])
         await db.users["users"].create_index("email", unique=True)
+        for token_field in ("verification_token", "password_reset_token", "delete_account_token"):
+            await db.users["users"].create_index(
+                [(token_field, 1)],
+                name=f"{token_field}_lookup",
+                partialFilterExpression={token_field: {"$type": "string"}},
+            )
         await db.users["users"].create_index(
             [("account_deletion_status", 1), ("account_deletion_lease_until", 1)]
         )
         await db.users["rate_limits"].create_index("expires_at", expireAfterSeconds=0)
+        
         await db.notes["workspaces"].create_index([("user_id", 1), ("parent_id", 1)])
-        await db.notes["notes"].create_index([("user_id", 1), ("workspace_id", 1)])
+        await db.notes["workspaces"].create_index(
+            [("user_id", 1), ("created_at", 1)], name="workspace_owner_created"
+        )
+        await db.notes["notes"].create_index(
+            [("user_id", 1), ("workspace_id", 1), ("updated_at", -1)],
+            name="note_owner_workspace_updated",
+        )
+        await db.notes["notes"].create_index(
+            [("user_id", 1), ("is_trashed", 1), ("workspace_id", 1), ("updated_at", -1)],
+            name="note_owner_trash_workspace_updated",
+        )
+        await db.notes["notes"].create_index(
+            [("collaborators.user_id", 1), ("workspace_id", 1), ("updated_at", -1)],
+            name="note_collaborator_workspace_updated",
+        )
+        await db.notes["notes"].create_index(
+            [("user_id", 1), ("is_trashed", 1), ("trashed_at", 1)],
+            name="note_owner_trash_date",
+        )
         token_cleanup_service.start()
     except Exception as e:
         token_cleanup_service.stop()

@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     DATABASE_WAIT_QUEUE_TIMEOUT_MS: int = 5000
 
     MAX_COLLABORATORS_PER_NOTE: int = 50
+    MAX_NOTE_SEARCH_LENGTH: int = 128
     MAX_REQUEST_BODY_BYTES: int = 2 * 1024 * 1024
     MAX_NOTE_CONTENT_BYTES: int = 1024 * 1024
     MAX_TAGS_PER_NOTE: int = 50
@@ -86,6 +87,8 @@ class Settings(BaseSettings):
             raise ValueError("Request body limit must be positive and at least as large as the note content limit")
         if self.MAX_TAGS_PER_NOTE <= 0 or self.MAX_TAG_LENGTH <= 0 or self.MAX_COLLABORATORS_PER_NOTE <= 0:
             raise ValueError("Note list and collaborator limits must be positive")
+        if self.MAX_NOTE_SEARCH_LENGTH <= 0:
+            raise ValueError("Note search length limit must be positive")
         if (
             self.SSE_MAX_CONNECTIONS_PER_PROCESS <= 0
             or self.SSE_MAX_CONNECTIONS_PER_USER <= 0
@@ -95,10 +98,9 @@ class Settings(BaseSettings):
         ):
             raise ValueError("SSE connection, queue, and event limits must be positive and consistent")
         if self.TOTP_ENCRYPTION_KEY:
-            import base64
             try:
-                if len(base64.urlsafe_b64decode(self.TOTP_ENCRYPTION_KEY.encode("ascii"))) != 32:
-                    raise ValueError
+                from cryptography.fernet import Fernet
+                Fernet(self.TOTP_ENCRYPTION_KEY.encode("ascii"))
             except Exception as exc:
                 raise ValueError("TOTP_ENCRYPTION_KEY must be a valid Fernet key") from exc
 

@@ -60,14 +60,14 @@ class WorkspaceController:
             {"user_id": user_id, "parent_id": ws_id},
             {"id": 1},
         )
-        child_docs = await child_cursor.to_list(length=1000)
+        child_docs = await child_cursor.to_list(length=None)
         child_ids = [c["id"] for c in child_docs]
 
         notes_cursor = notes_col.find(
             {"user_id": user_id, "workspace_id": ws_id},
             {"id": 1},
         )
-        note_docs = await notes_cursor.to_list(length=5000)
+        note_docs = await notes_cursor.to_list(length=None)
         note_ids = [n["id"] for n in note_docs]
 
         return WorkspaceResponse(
@@ -165,15 +165,26 @@ class WorkspaceController:
         workspaces_col = WorkspaceController._get_workspaces_collection()
         notes_col = WorkspaceController._get_notes_collection()
 
-        cursor = workspaces_col.find({"user_id": user_id}).sort("created_at", 1)
-        docs = await cursor.to_list(length=2000)
+        docs = await workspaces_col.find({"user_id": user_id}).sort("created_at", 1).to_list(length=None)
+        children: dict[str, list[str]] = {}
+        notes: dict[str, list[str]] = {}
+        async for child in workspaces_col.find(
+            {"user_id": user_id, "parent_id": {"$in": [doc["id"] for doc in docs]}}, {"id": 1, "parent_id": 1}
+        ):
+            children.setdefault(child["parent_id"], []).append(child["id"])
+        async for note in notes_col.find(
+            {"user_id": user_id, "workspace_id": {"$in": [doc["id"] for doc in docs]}}, {"id": 1, "workspace_id": 1}
+        ):
+            notes.setdefault(note["workspace_id"], []).append(note["id"])
 
-        results = []
-        for doc in docs:
-            resp = await WorkspaceController._populate_workspace_response(doc, workspaces_col, notes_col)
-            results.append(resp)
-
-        return results
+        return [
+            WorkspaceResponse(
+                id=doc["id"], user_id=user_id, name=doc["name"], color=doc.get("color"), icon=doc.get("icon"),
+                parent_id=doc.get("parent_id"), child_workspaces=children.get(doc["id"], []),
+                notes_count=len(notes.get(doc["id"], [])), notes=notes.get(doc["id"], []),
+                created_at=doc["created_at"], updated_at=doc["updated_at"],
+            ) for doc in docs
+        ]
 
     @staticmethod
     async def get_workspace(user_id: str, workspace_id: str) -> WorkspaceResponse:

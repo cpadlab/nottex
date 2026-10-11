@@ -649,6 +649,12 @@ class NoteController:
             query_filters.append({"tags": tag.strip().lower()})
 
         if search:
+            normalized_search = search.strip()
+            if len(normalized_search) > settings.MAX_NOTE_SEARCH_LENGTH:
+                raise HTTPException(status_code=422, detail="error.search_query_too_long")
+            if not normalized_search:
+                search = None
+        if search:
             escaped_search = re.escape(search.strip())
             search_regex = {"$regex": escaped_search, "$options": "i"}
             query_filters.append({
@@ -664,7 +670,7 @@ class NoteController:
         sort_field = sort_by if sort_by in valid_sort_fields else "updated_at"
         order = -1 if sort_order == -1 else 1
 
-        total = await notes_col.count_documents(final_query)
+        total = await notes_col.count_documents(final_query, maxTimeMS=3000)
         skip = max(0, (page - 1) * page_size)
 
         cursor = (
@@ -672,6 +678,7 @@ class NoteController:
             .sort(sort_field, order)
             .skip(skip)
             .limit(page_size)
+            .max_time_ms(3000)
         )
         docs = await cursor.to_list(length=page_size)
 
@@ -694,30 +701,25 @@ class NoteController:
         workspaces_col = NoteController._get_workspaces_col()
         notes_col = NoteController._get_notes_col()
 
-        ws_docs = await workspaces_col.find({"user_id": user_id}).sort("created_at", 1).to_list(length=1000)
+        ws_docs = await workspaces_col.find({"user_id": user_id}).sort("created_at", 1).to_list(length=None)
+        workspace_ids = [ws["id"] for ws in ws_docs]
+        children: dict[str, list[str]] = {}
+        grouped_notes: dict[str, list[dict]] = {}
+        async for child in workspaces_col.find(
+            {"user_id": user_id, "parent_id": {"$in": workspace_ids}}, {"id": 1, "parent_id": 1}
+        ):
+            children.setdefault(child["parent_id"], []).append(child["id"])
+        async for note in notes_col.find(
+            {"user_id": user_id, "workspace_id": {"$in": workspace_ids}}
+        ).sort("updated_at", -1):
+            grouped_notes.setdefault(note["workspace_id"], []).append(note)
 
-        results = []
-        for ws in ws_docs:
-            ws_id = ws["id"]
-            child_docs = await workspaces_col.find({"user_id": user_id, "parent_id": ws_id}, {"id": 1}).to_list(length=1000)
-            child_ids = [c["id"] for c in child_docs]
-
-            note_docs = await notes_col.find({"user_id": user_id, "workspace_id": ws_id}).sort("updated_at", -1).to_list(length=1000)
-            notes_list = [NoteController._doc_to_response(n) for n in note_docs]
-
-            results.append(WorkspaceWithNotesResponse(
-                id=ws_id,
-                name=ws["name"],
-                color=ws.get("color"),
-                icon=ws.get("icon"),
-                parent_id=ws.get("parent_id"),
-                notes=notes_list,
-                child_workspaces=child_ids,
-                created_at=ws["created_at"],
-                updated_at=ws["updated_at"],
-            ))
-
-        return results
+        return [WorkspaceWithNotesResponse(
+            id=ws["id"], name=ws["name"], color=ws.get("color"), icon=ws.get("icon"),
+            parent_id=ws.get("parent_id"),
+            notes=[NoteController._doc_to_response(n) for n in grouped_notes.get(ws["id"], [])],
+            child_workspaces=children.get(ws["id"], []), created_at=ws["created_at"], updated_at=ws["updated_at"],
+        ) for ws in ws_docs]
 
     @staticmethod
     async def open_note_events(note_id: str, user_id: Optional[str], subscriber_id: str) -> asyncio.Queue:

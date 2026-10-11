@@ -21,6 +21,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                 "[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:my-3",
                 "[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:leading-snug [&_h2]:my-2.5",
                 "[&_h3]:text-xl [&_h3]:font-semibold [&_h3]:leading-normal [&_h3]:my-2",
+                "[&_b]:font-bold [&_strong]:font-bold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_strike]:line-through",
                 "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
                 className
             )} {...props}

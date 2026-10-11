@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useKeybindings } from "./use-keybindings"
 
 export type TextFormat = "normal" | "heading_1" | "heading_2" | "heading_3"
 export type TextAlignment = "align_left" | "align_center" | "align_right" | "align_justify"
@@ -111,9 +112,29 @@ export const useEditor = (options?: UseEditorOptions) => {
 
         if (editorRef.current.contains(selection.anchorNode)) {
             const detected = detectCurrentFormat()
+            const isBoldState = document.queryCommandState("bold")
+            const isItalicState = document.queryCommandState("italic")
+            const isUnderlineState = document.queryCommandState("underline")
+            const isStrikethroughState = document.queryCommandState("strikeThrough")
+
             setState((prev) => {
-                if (prev.textFormatting === detected) return prev
-                return { ...prev, textFormatting: detected }
+                if (
+                    prev.textFormatting === detected &&
+                    prev.isBold === isBoldState &&
+                    prev.isItalic === isItalicState &&
+                    prev.isUnderline === isUnderlineState &&
+                    prev.isStrikethrough === isStrikethroughState
+                ) {
+                    return prev
+                }
+                return {
+                    ...prev,
+                    textFormatting: detected,
+                    isBold: isBoldState,
+                    isItalic: isItalicState,
+                    isUnderline: isUnderlineState,
+                    isStrikethrough: isStrikethroughState,
+                }
             })
         }
     }, [detectCurrentFormat])
@@ -164,21 +185,55 @@ export const useEditor = (options?: UseEditorOptions) => {
         handleSelectionChange()
     }, [options, handleSelectionChange])
 
-    const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            const detected = detectCurrentFormat()
-            if (detected.startsWith("heading_")) {
-                setTimeout(() => {
-                    document.execCommand("formatBlock", false, "p")
-                    handleSelectionChange()
-                    if (editorRef.current && options?.onChange) {
-                        isInternalUpdate.current = true
-                        options.onChange(editorRef.current.innerHTML)
-                    }
-                }, 0)
-            }
+    const executeInlineCommand = useCallback((command: string) => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
         }
-    }, [detectCurrentFormat, handleSelectionChange, options])
+
+        document.execCommand(command, false)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+    }, [options, handleSelectionChange])
+
+    const onBold = useCallback(() => {
+        executeInlineCommand("bold")
+        options?.onToggleBold?.()
+    }, [executeInlineCommand, options])
+
+    const onItalic = useCallback(() => {
+        executeInlineCommand("italic")
+        options?.onToggleItalic?.()
+    }, [executeInlineCommand, options])
+
+    const onUnderline = useCallback(() => {
+        executeInlineCommand("underline")
+        options?.onToggleUnderline?.()
+    }, [executeInlineCommand, options])
+
+    const onStrikethrough = useCallback(() => {
+        executeInlineCommand("strikeThrough")
+        options?.onToggleStrikethrough?.()
+    }, [executeInlineCommand, options])
+
+    const { handleKeyDown } = useKeybindings({
+        onBold,
+        onItalic,
+        onUnderline,
+        onStrikethrough,
+        detectCurrentFormat,
+        handleSelectionChange,
+        onChange: options?.onChange,
+        editorRef,
+        isInternalUpdate,
+    })
 
     const isCompact = options?.isCompact ?? state.isCompact
 
@@ -328,26 +383,6 @@ export const useEditor = (options?: UseEditorOptions) => {
 
     const onVideo = useCallback((src?: string) => {
         options?.onInsertVideo?.(src)
-    }, [options])
-
-    const onBold = useCallback(() => {
-        setState((prev) => ({ ...prev, isBold: !prev.isBold }))
-        options?.onToggleBold?.()
-    }, [options])
-
-    const onItalic = useCallback(() => {
-        setState((prev) => ({ ...prev, isItalic: !prev.isItalic }))
-        options?.onToggleItalic?.()
-    }, [options])
-
-    const onUnderline = useCallback(() => {
-        setState((prev) => ({ ...prev, isUnderline: !prev.isUnderline }))
-        options?.onToggleUnderline?.()
-    }, [options])
-
-    const onStrikethrough = useCallback(() => {
-        setState((prev) => ({ ...prev, isStrikethrough: !prev.isStrikethrough }))
-        options?.onToggleStrikethrough?.()
     }, [options])
 
     const onSuperscript = useCallback(() => {

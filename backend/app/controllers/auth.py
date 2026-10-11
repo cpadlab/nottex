@@ -276,7 +276,7 @@ class AuthController:
         - Generates UUID and verification token
         - Inserts user document
         - Spawns background asyncio task to send verification email
-        - Generates JWT access token and returns AuthResponse
+        - Returns a pending-verification response without an access token
         """
         if not db.is_connected:
             raise HTTPException(
@@ -313,7 +313,7 @@ class AuthController:
             "verification_token": token,
             "verification_token_expires_at": token_expires_at,
             "verification_email_sent_at": now,
-            "last_login": now,
+            "last_login": None,
             "created_at": now,
             "updated_at": now,
         }
@@ -335,10 +335,6 @@ class AuthController:
             )
         )
 
-        access_token = create_access_token(
-            data={"sub": user_id, "email": payload.email, "ver": 0}
-        )
-
         user_response = UserResponse(
             id=user_id,
             email=payload.email,
@@ -347,13 +343,13 @@ class AuthController:
             language=payload.language,
             is_verified=False,
             is_totp_enabled=False,
-            last_login=now,
+            last_login=None,
             created_at=now,
             updated_at=now,
         )
 
         return AuthResponse(
-            access_token=access_token,
+            access_token=None,
             token_type="bearer",
             user=user_response,
             message="auth.register_success",
@@ -479,7 +475,7 @@ class AuthController:
     async def get_current_user(token: Optional[str]) -> UserResponse:
         """
         Validates JWT token from authorization header, retrieves user from MongoDB,
-        and returns the user profile.
+        requires a verified email and returns the user profile.
         """
         if not token:
             raise HTTPException(
@@ -523,6 +519,12 @@ class AuthController:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="error.token_invalid_or_expired",
                 headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if user.get("is_verified") is not True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="error.email_not_verified",
             )
 
         return UserResponse(
@@ -720,6 +722,12 @@ class AuthController:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="error.invalid_credentials",
+            )
+
+        if user.get("is_verified") is not True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="error.email_not_verified",
             )
 
         is_totp_enabled = user.get("is_totp_enabled", False)

@@ -4,10 +4,12 @@ import type {
     ChangeEmailRequest,
     ChangeLanguageRequest,
     ChangePasswordRequest,
+    ConfirmDeleteAccountRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     LoginRequest,
     RegisterRequest,
+    RequestDeleteAccountRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
     ResetPasswordRequest,
@@ -22,6 +24,7 @@ import type {
     VerifyEmailRequest,
     VerifyEmailResponse,
 } from "@/types/auth";
+
 
 export const authService = {
     async register(data: RegisterRequest): Promise<AuthResponse> {
@@ -102,6 +105,17 @@ export const authService = {
 
     async disableTotp(data: TotpDisableRequest): Promise<TotpStatusResponse> {
         const response = await api.post<TotpStatusResponse>("/auth/totp/disable", data);
+        return response.data;
+    },
+
+    async requestDeleteAccount(data: RequestDeleteAccountRequest): Promise<UserActionResponse> {
+        const response = await api.delete<UserActionResponse>("/auth/account", { data });
+        return response.data;
+    },
+
+    async confirmDeleteAccount(data: ConfirmDeleteAccountRequest): Promise<UserActionResponse> {
+        const response = await api.post<UserActionResponse>("/auth/account/confirm-delete", data);
+        localStorage.removeItem("access_token");
         return response.data;
     },
 

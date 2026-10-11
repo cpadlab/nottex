@@ -111,3 +111,13 @@ export interface UserActionResponse {
     user?: User;
 }
 
+export interface RequestDeleteAccountRequest {
+    password: string;
+    totp_code?: string;
+}
+
+export interface ConfirmDeleteAccountRequest {
+    token: string;
+}
+
+

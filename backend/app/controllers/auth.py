@@ -1141,7 +1141,7 @@ class AuthController:
 
         now = datetime.now(timezone.utc)
         verification_token = generate_verification_token()
-        verification_expires_at = now + timedelta(days=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_DAYS)
+        verification_expires_at = now + timedelta(hours=settings.VERIFICATION_TOKEN_EXPIRE_HOURS)
 
         old_email = user["email"]
         try:

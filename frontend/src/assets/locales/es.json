@@ -32,6 +32,20 @@
             "copy": "Copiar código",
             "copied": "Copiado"
         },
+        "image": {
+            "dropzone": "Suelta tu imagen aquí",
+            "dropzone_sub": "PNG, JPG, GIF o WEBP",
+            "title": "Opciones de imagen",
+            "layout": "Tamaño",
+            "layout_fit": "Entera",
+            "layout_fill": "Fill",
+            "align": "Alineación",
+            "align_left": "Izquierda",
+            "align_center": "Centro",
+            "align_right": "Derecha",
+            "align_justify": "Justificado",
+            "delete": "Eliminar imagen"
+        },
         "toolbar": {
             "normal": "Normal",
             "heading": "Título",
@@ -54,9 +68,7 @@
             "alignjustify": "Justificar",
             "alignleft": "Alinear a la izquierda",
             "alignright": "Alinear a la derecha",
-            "link": "Insertar enlace",
             "image": "Insertar imagen",
-            "video": "Insertar vídeo",
             "collapse": "Modo compacto",
             "expand": "Modo expandido"
         }

@@ -32,6 +32,20 @@
             "copy": "Copy code",
             "copied": "Copied"
         },
+        "image": {
+            "dropzone": "Drop your image here",
+            "dropzone_sub": "PNG, JPG, GIF or WEBP",
+            "title": "Image options",
+            "layout": "Size",
+            "layout_fit": "Fit",
+            "layout_fill": "Fill",
+            "align": "Alignment",
+            "align_left": "Left",
+            "align_center": "Center",
+            "align_right": "Right",
+            "align_justify": "Justify",
+            "delete": "Delete image"
+        },
         "toolbar": {
             "normal": "Normal",
             "heading": "Heading",
@@ -54,9 +68,7 @@
             "alignjustify": "Justify",
             "alignleft": "Align left",
             "alignright": "Align right",
-            "link": "Insert link",
             "image": "Insert image",
-            "video": "Insert video",
             "collapse": "Compact mode",
             "expand": "Expanded mode"
         }

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState, type ComponentProps } from 'react'
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from 'cn'
 import { useTranslation } from 'react-i18next'
 import { useEditorContext } from '@/contexts/editor-context'
 import { TodoCheckboxItem } from './components/todo-checkbox-item'
 import { CodeBlockItem } from './components/code-block-item'
+import { ImageBlockItem } from './components/image-block-item'
+import { DropzoneOverlay } from './components/dropzone-overlay'
 
 export interface EditorTextareaProps extends ComponentProps<'div'> {
     placeholder?: string
@@ -14,9 +16,12 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
     
     const { t: translation } = useTranslation()
     const defaultPlaceholder = translation('editor.placeholder')
-    const { editorRef, handleInput, handleKeyDown, handleSelectionChange } = useEditorContext()
+    const { editorRef, handleInput, handleKeyDown, handleSelectionChange, insertImage } = useEditorContext()
     const [checkboxContainers, setCheckboxContainers] = useState<HTMLElement[]>([])
     const [codeBlockContainers, setCodeBlockContainers] = useState<HTMLElement[]>([])
+    const [imageContainers, setImageContainers] = useState<HTMLElement[]>([])
+    const [isDragging, setIsDragging] = useState(false)
+    const dragCounter = useRef(0)
 
     const syncCheckboxContainers = useCallback(() => {
         if (!editorRef.current) return
@@ -60,6 +65,27 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         })
     }, [editorRef])
 
+    const syncImageContainers = useCallback(() => {
+        if (!editorRef.current) return
+        const containers = Array.from(
+            editorRef.current.querySelectorAll<HTMLElement>("div[data-type=image-block]")
+        )
+        containers.forEach((c, idx) => {
+            if (!c.dataset.id) {
+                c.dataset.id = `img-blk-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`
+            }
+        })
+        setImageContainers((prev) => {
+            if (
+                prev.length === containers.length &&
+                prev.every((c, i) => c === containers[i])
+            ) {
+                return prev
+            }
+            return containers
+        })
+    }, [editorRef])
+
     const syncLinks = useCallback(() => {
         if (!editorRef.current) return
         const links = editorRef.current.querySelectorAll<HTMLAnchorElement>('a')
@@ -80,6 +106,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
     useEffect(() => {
         syncCheckboxContainers()
         syncCodeBlockContainers()
+        syncImageContainers()
         syncLinks()
         const editor = editorRef.current
         if (!editor) return
@@ -87,6 +114,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         const observer = new MutationObserver(() => {
             syncCheckboxContainers()
             syncCodeBlockContainers()
+            syncImageContainers()
             syncLinks()
         })
 
@@ -98,10 +126,27 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         return () => {
             observer.disconnect()
         }
-    }, [syncCheckboxContainers, syncCodeBlockContainers, syncLinks, editorRef])
+    }, [syncCheckboxContainers, syncCodeBlockContainers, syncImageContainers, syncLinks, editorRef])
 
     const handlePaste = useCallback(
         (e: React.ClipboardEvent<HTMLDivElement>) => {
+            const imageFiles = Array.from(e.clipboardData.files).filter((f) =>
+                f.type.startsWith('image/')
+            )
+            if (imageFiles.length > 0) {
+                e.preventDefault()
+                imageFiles.forEach((file) => {
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                        if (typeof reader.result === 'string') {
+                            insertImage(reader.result)
+                        }
+                    }
+                    reader.readAsDataURL(file)
+                })
+                return
+            }
+
             const clipboardText = e.clipboardData.getData('text/plain').trim()
             const urlPattern = /^(https?:\/\/[^\s]+|www\.[^\s]+)$/i
 
@@ -140,7 +185,59 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                 return
             }
         },
-        [handleInput]
+        [handleInput, insertImage]
+    )
+
+    const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounter.current++
+        if (e.dataTransfer.types.includes('Files')) {
+            setIsDragging(true)
+        }
+    }, [])
+
+    const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.dataTransfer.types.includes('Files')) {
+            setIsDragging(true)
+        }
+    }, [])
+
+    const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounter.current--
+        if (dragCounter.current <= 0) {
+            dragCounter.current = 0
+            setIsDragging(false)
+        }
+    }, [])
+
+    const handleDrop = useCallback(
+        (e: React.DragEvent<HTMLDivElement>) => {
+            e.preventDefault()
+            e.stopPropagation()
+            dragCounter.current = 0
+            setIsDragging(false)
+
+            const files = Array.from(e.dataTransfer.files).filter((f) =>
+                f.type.startsWith('image/')
+            )
+            if (files.length > 0) {
+                files.forEach((file) => {
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                        if (typeof reader.result === 'string') {
+                            insertImage(reader.result)
+                        }
+                    }
+                    reader.readAsDataURL(file)
+                })
+            }
+        },
+        [insertImage]
     )
 
     const handleClick = useCallback(
@@ -160,7 +257,8 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                 if (
                     lastChild &&
                     (lastChild.tagName.toLowerCase() === 'blockquote' ||
-                        lastChild.getAttribute('data-type') === 'code-block')
+                        lastChild.getAttribute('data-type') === 'code-block' ||
+                        lastChild.getAttribute('data-type') === 'image-block')
                 ) {
                     const p = document.createElement('p')
                     p.innerHTML = '<br>'
@@ -180,8 +278,10 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
     )
 
     return (
-        <>
+        <div className="relative flex flex-col flex-1 min-h-0 w-full" onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
         
+            <DropzoneOverlay isVisible={isDragging} />
+
             <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder={placeholder ?? defaultPlaceholder} onInput={handleInput} onKeyDown={handleKeyDown} onKeyUp={handleSelectionChange} onMouseUp={handleSelectionChange} onClick={handleClick} onPaste={handlePaste}
                 className={cn(
                     "w-full scroll-fade flex-1 min-w-full min-h-0 overflow-y-auto outline-none resize-none scrollbar-none",
@@ -209,6 +309,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                     "[&_li[data-indent='7']]:ml-42",
                     "[&_li[data-indent='8']]:ml-48",
                     "[&_div[data-type=code-block]]:my-3 [&_div[data-type=code-block]]:select-none [&_div[data-type=code-block]]:cursor-default",
+                    "[&_div[data-type=image-block]]:my-3 [&_div[data-type=image-block]]:select-none [&_div[data-type=image-block]]:cursor-default",
                     "[&_blockquote]:border-l-4 [&_blockquote]:border-l-primary [&_blockquote]:bg-muted [&_blockquote]:text-muted-foreground [&_blockquote]:pl-4 [&_blockquote]:pr-3 [&_blockquote]:py-2.5 [&_blockquote]:my-3 [&_blockquote]:rounded-r-lg [&_blockquote]:italic",
                     "[&_a]:text-blue-500 [&_a]:hover:text-blue-600 [&_a]:dark:text-blue-400 [&_a]:dark:hover:text-blue-300 [&_a]:underline [&_a]:underline-offset-2 [&_a]:cursor-pointer [&_a]:inline-flex [&_a]:items-center [&_a]:max-w-[100ch] [&_a]:truncate [&_a]:align-baseline",
                     "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
@@ -235,7 +336,16 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                 )
             })}
 
-        </>
+            {imageContainers.map((container) => {
+                const id = container.dataset.id || "img-blk"
+                return createPortal(
+                    <ImageBlockItem container={container} />,
+                    container,
+                    id
+                )
+            })}
+
+        </div>
     )
 }
 

@@ -124,6 +124,13 @@ async def update_note(
     return await NoteController.update_note(note_id, current_user.id, payload)
 
 
+@router.delete("/trash/empty")
+async def empty_trash(
+    current_user: UserResponse = Depends(get_required_user_dep),
+):
+    return await NoteController.empty_trash(current_user.id)
+
+
 @router.delete("/{note_id}")
 async def delete_note(
     note_id: str,

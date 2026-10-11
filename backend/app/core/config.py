@@ -29,12 +29,15 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = "nottex-super-secret-key-change-in-production-random-32bytes"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
     RESEND_VERIFICATION_COOLDOWN_MINUTES: int = 15
-    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
-    PASSWORD_RESET_COOLDOWN_MINUTES: int = 15  # 15 minutes between reset requests
-    TOKEN_CLEANUP_INTERVAL_MINUTES: int = 60  # Background cleanup runs every hour
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60
+    PASSWORD_RESET_COOLDOWN_MINUTES: int = 15
+    TOKEN_CLEANUP_INTERVAL_MINUTES: int = 60
+    TRASH_RETENTION_DAYS: int = 30
+    UNVERIFIED_USER_RETENTION_DAYS: int = 7
+
 
     CORS_ALLOW_ORIGINS: List[str] = [
         "http://localhost:5173",

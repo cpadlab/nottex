@@ -398,7 +398,26 @@ class NoteController:
         return resp
 
     @staticmethod
+    async def empty_trash(user_id: str) -> dict:
+        """
+        Permanently purges all notes in trash belonging to the user.
+        """
+        notes_col = NoteController._get_notes_col()
+        res = await notes_col.delete_many({"user_id": user_id, "is_trashed": True})
+
+        await user_broadcaster.publish(user_id, {
+            "type": "trash_emptied",
+            "count": res.deleted_count,
+        })
+
+        return {
+            "message": "note_messages.trash_emptied_success",
+            "count": res.deleted_count,
+        }
+
+    @staticmethod
     async def duplicate_note(note_id: str, user_id: str, payload: NoteDuplicateRequest) -> NoteResponse:
+
         """
         Creates an independent copy of an existing note (even if shared) in the user's workspace.
         """

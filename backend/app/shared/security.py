@@ -105,3 +105,41 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 
         return f"{header_b64}.{payload_b64}.{sig_b64}"
 
+
+def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Decodes and validates a JWT access token.
+    Returns the payload dictionary if valid and not expired, None otherwise.
+    """
+    try:
+        import jwt
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    except ImportError:
+        try:
+            parts = token.split(".")
+            if len(parts) != 3:
+                return None
+
+            header_b64, payload_b64, sig_b64 = parts
+            signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
+            expected_sig = _base64url_encode(
+                hmac.new(settings.SECRET_KEY.encode("utf-8"), signing_input, hashlib.sha256).digest()
+            )
+            if not hmac.compare_digest(sig_b64, expected_sig):
+                return None
+
+            payload_bytes = _base64url_decode(payload_b64)
+            payload = json.loads(payload_bytes.decode("utf-8"))
+
+            exp = payload.get("exp")
+            if exp:
+                now_ts = int(datetime.now(timezone.utc).timestamp())
+                if now_ts > exp:
+                    return None
+
+            return payload
+        except Exception:
+            return None
+    except Exception:
+        return None
+

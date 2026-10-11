@@ -93,13 +93,22 @@ class NoteResponse(BaseModel):
     content: str = ""
     color: Optional[str] = None
     is_pinned: bool = False
+    is_trashed: bool = False
+    trashed_at: Optional[datetime] = None
     workspace_id: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     is_public: bool = False
+    is_shared: bool = False
     collaborators: List[NoteCollaborator] = Field(default_factory=list)
+    my_permission: str = "owner"
     version: int = 1
     created_at: datetime
     updated_at: datetime
+
+
+class NoteDuplicateRequest(BaseModel):
+    title: Optional[str] = None
+    workspace_id: Optional[str] = None
 
 
 class PaginatedNotesResponse(BaseModel):

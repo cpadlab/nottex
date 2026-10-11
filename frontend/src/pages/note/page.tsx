@@ -16,7 +16,7 @@ const NotePage = () => {
     return (
         <NoteProvider options={{ id }}>
             <div className="px-6 md:py-8 py-6 h-dvh max-h-dvh min-h-dvh relative">
-                <div className="max-w-[867.15px] mx-auto h-full flex flex-col gap-4">
+                <div className="max-w-[867.15px] mx-auto h-full flex flex-col gap-4 min-h-0">
                     <NoteActions />
                     <NoteTitle />
                     <Editor />

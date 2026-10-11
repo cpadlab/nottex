@@ -23,10 +23,10 @@ const Editor = ({ options }: EditorProps) => {
     }
 
     return (
-        <EditorProvider options={options}>
-            <div className='flex flex-col gap-4 flex-1'>
+        <EditorProvider options={{ ...options, value: content, onChange: handleContentChange }}>
+            <div className='flex flex-col gap-4 flex-1 min-h-0'>
                 <Toolbar />
-                <EditorTextarea className='pb-8 md:pb-0' value={content} onChange={handleContentChange} />
+                <EditorTextarea className='pb-8 md:pb-0' />
             </div>
         </EditorProvider>
     )

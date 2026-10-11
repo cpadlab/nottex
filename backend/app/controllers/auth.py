@@ -11,11 +11,16 @@ from app.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    LoginRequest,
     RegisterRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    TotpDisableRequest,
+    TotpSetupResponse,
+    TotpStatusResponse,
+    TotpVerifyRequest,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
@@ -26,8 +31,12 @@ from app.shared.logger import get_logger
 from app.shared.security import (
     create_access_token,
     decode_access_token,
+    generate_totp_secret,
     generate_verification_token,
+    get_totp_uri,
     hash_password,
+    verify_password,
+    verify_totp_code,
 )
 
 logger = get_logger(__name__)
@@ -214,6 +223,7 @@ class AuthController:
             last_name=payload.last_name,
             language=payload.language,
             is_verified=False,
+            is_totp_enabled=False,
             last_login=now,
             created_at=now,
             updated_at=now,
@@ -407,6 +417,7 @@ class AuthController:
             last_name=user["last_name"],
             language=user.get("language", "es"),
             is_verified=user.get("is_verified", False),
+            is_totp_enabled=user.get("is_totp_enabled", False),
             last_login=user.get("last_login"),
             created_at=user.get("created_at"),
             updated_at=user.get("updated_at"),
@@ -552,5 +563,250 @@ class AuthController:
         return ResetPasswordResponse(
             message="auth.password_reset_success",
         )
+
+    @staticmethod
+    async def login(payload: LoginRequest) -> AuthResponse:
+        """
+        Authenticates a user:
+        - Validates credentials
+        - If TOTP is enabled:
+          - If totp_code is missing: returns requires_totp=True (so client prompts for 6-digit code)
+          - If totp_code is provided: validates code against user's stored totp_secret
+        - Updates last_login timestamp and returns JWT token
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"email": payload.email})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.invalid_credentials",
+            )
+
+        if not verify_password(payload.password, user.get("hashed_password", "")):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.invalid_credentials",
+            )
+
+        is_totp_enabled = user.get("is_totp_enabled", False)
+        totp_secret = user.get("totp_secret")
+
+        if is_totp_enabled and totp_secret:
+            if not payload.totp_code:
+                return AuthResponse(
+                    access_token=None,
+                    token_type="bearer",
+                    user=None,
+                    requires_totp=True,
+                    message="auth.totp_code_required",
+                )
+
+            if not verify_totp_code(totp_secret, payload.totp_code):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="error.invalid_totp_code",
+                )
+
+        now = datetime.now(timezone.utc)
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"last_login": now, "updated_at": now}},
+        )
+
+        user_id = user["id"]
+        access_token = create_access_token(
+            data={"sub": user_id, "email": user["email"]}
+        )
+
+        user_response = UserResponse(
+            id=user_id,
+            email=user["email"],
+            first_name=user["first_name"],
+            last_name=user["last_name"],
+            language=user.get("language", "es"),
+            is_verified=user.get("is_verified", False),
+            is_totp_enabled=is_totp_enabled,
+            last_login=now,
+            created_at=user.get("created_at"),
+            updated_at=now,
+        )
+
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=user_response,
+            requires_totp=False,
+            message="auth.login_success",
+        )
+
+    @staticmethod
+    async def totp_setup(user_id: str) -> TotpSetupResponse:
+        """
+        Initiates 2FA setup:
+        - Generates a secret key and provisioning URI (for Google Authenticator, Authy, etc.)
+        - Stores the pending secret in user document until verified
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        secret = generate_totp_secret()
+        uri = get_totp_uri(secret=secret, email=user["email"])
+
+        now = datetime.now(timezone.utc)
+        await users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "pending_totp_secret": secret,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        return TotpSetupResponse(
+            secret=secret,
+            provisioning_uri=uri,
+        )
+
+    @staticmethod
+    async def totp_verify(user_id: str, payload: TotpVerifyRequest) -> TotpStatusResponse:
+        """
+        Confirms and activates TOTP:
+        - Validates the 6-digit code against the pending secret
+        - Sets is_totp_enabled=True and promotes pending_totp_secret to totp_secret
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        pending_secret = user.get("pending_totp_secret")
+        if not pending_secret:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.no_pending_totp_setup",
+            )
+
+        if not verify_totp_code(pending_secret, payload.code):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_totp_code",
+            )
+
+        now = datetime.now(timezone.utc)
+        await users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "is_totp_enabled": True,
+                    "totp_secret": pending_secret,
+                    "pending_totp_secret": None,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        logger.info(f"TOTP 2FA enabled successfully for user {user.get('email')}")
+        return TotpStatusResponse(is_enabled=True)
+
+    @staticmethod
+    async def totp_disable(user_id: str, payload: TotpDisableRequest) -> TotpStatusResponse:
+        """
+        Disables TOTP 2FA:
+        - Requires verification via password or valid totp_code for security
+        - Clears totp_secret and sets is_totp_enabled=False
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        if not user.get("is_totp_enabled"):
+            return TotpStatusResponse(is_enabled=False)
+
+        authenticated = False
+        if payload.password and verify_password(payload.password, user.get("hashed_password", "")):
+            authenticated = True
+        elif payload.code and user.get("totp_secret") and verify_totp_code(user["totp_secret"], payload.code):
+            authenticated = True
+
+        if not authenticated:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.totp_disable_auth_failed",
+            )
+
+        now = datetime.now(timezone.utc)
+        await users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "is_totp_enabled": False,
+                    "totp_secret": None,
+                    "pending_totp_secret": None,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        logger.info(f"TOTP 2FA disabled for user {user.get('email')}")
+        return TotpStatusResponse(is_enabled=False)
+
+    @staticmethod
+    async def totp_status(user_id: str) -> TotpStatusResponse:
+        """
+        Returns whether TOTP 2FA is currently active for the user.
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id}, {"is_totp_enabled": 1})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        return TotpStatusResponse(is_enabled=user.get("is_totp_enabled", False))
+
 
 

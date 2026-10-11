@@ -8,7 +8,7 @@ export const LeftbarBody = () => {
     const { t: translation } = useTranslation()
 
     return (
-        <SidebarContent>
+        <SidebarContent className="items-center md:justify-center flex-1">
 
             <SidebarGroup>
                 <SidebarGroupLabel>{translation('layout.sidebar.workspace')}</SidebarGroupLabel>

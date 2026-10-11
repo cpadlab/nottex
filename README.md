@@ -8,7 +8,11 @@ a real SMTP provider before starting the application.
 
 1. Copy `.env.example` to `.env` and fill in the required values. Generate
    separate random secrets for the application signing key and both MongoDB
-   passwords, for example with `openssl rand -hex 32`. `MONGO_APP_PASSWORD`
+   passwords, for example with `openssl rand -hex 32`. Generate
+   `TOTP_ENCRYPTION_KEY` and `NOTE_ENCRYPTION_KEY` with
+   `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+   Keep both encryption keys stable and backed up separately from MongoDB; losing
+   `NOTE_ENCRYPTION_KEY` makes note titles and content unrecoverable. `MONGO_APP_PASSWORD`
    must be hexadecimal and at least 64 characters. Do not reuse the root
    password. Production startup also requires `SECRET_KEY` to be at least 64
    characters and rejects `DEBUG=true`.
@@ -55,6 +59,20 @@ The MongoDB initialization script creates `nottex_app` with `readWrite` access
 only to the `users` and `notes` databases. The application connects as that user;
 the root account is reserved for MongoDB initialization and its health check.
 Neither MongoDB nor Mailpit publishes a host port in this stack.
+
+Note titles and bodies are encrypted by the backend before storage using
+Fernet authenticated encryption. The backend decrypts them for authorized API
+responses, search, collaboration, and exports, so this protects against a
+database-only leak but is not end-to-end encryption and does not protect against
+compromise of the running application or its encryption key. On startup, legacy
+plaintext note fields are migrated before the API becomes ready. Search decrypts
+up to `MAX_NOTE_SEARCH_SCAN` notes and `MAX_NOTE_SEARCH_BYTES` of note text per
+request; title sorting has the same record cap. Larger scopes return an explicit
+error and should be narrowed by workspace or tag.
+Stop all older backend workers before the first rollout so they cannot write
+plaintext notes after migration completes. Database backups made before the
+migration still contain plaintext and must remain protected under the old policy
+or be expired according to the backup retention plan.
 
 In production, the backend exits if MongoDB cannot connect or the required
 indexes cannot be created. `/ping` is a liveness check; `/ready` checks startup

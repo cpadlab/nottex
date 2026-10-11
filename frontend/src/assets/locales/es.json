@@ -82,6 +82,8 @@
         "rate_limit_exceeded": "Hay demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
         "rate_limit_unavailable": "La protección de solicitudes no está disponible temporalmente. Inténtalo de nuevo en breve.",
         "collaborator_limit_reached": "Esta nota ha alcanzado el límite de colaboradores.",
+        "search_query_too_long": "La búsqueda supera la longitud máxima permitida.",
+        "note_list_scope_too_large": "Hay demasiadas notas para buscar u ordenar a la vez. Filtra por espacio o etiqueta.",
         "email_already_registered": "El correo electrónico ya se encuentra registrado.",
         "invalid_or_used_token": "El token de verificación es inválido o ya ha sido utilizado.",
         "token_expired": "El token de verificación ha caducado. Por favor solicita uno nuevo.",

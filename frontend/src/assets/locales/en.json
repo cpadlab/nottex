@@ -82,6 +82,8 @@
         "rate_limit_exceeded": "Too many requests. Please wait and try again.",
         "rate_limit_unavailable": "Request protection is temporarily unavailable. Please try again shortly.",
         "collaborator_limit_reached": "This note has reached its collaborator limit.",
+        "search_query_too_long": "The search query exceeds the maximum allowed length.",
+        "note_list_scope_too_large": "There are too many notes to search or sort at once. Filter by workspace or tag.",
         "email_already_registered": "Email is already registered.",
         "invalid_or_used_token": "The verification token is invalid or has already been used.",
         "token_expired": "The verification token has expired. Please request a new one.",

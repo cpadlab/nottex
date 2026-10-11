@@ -5,7 +5,7 @@ import type { BundledLanguage } from 'shiki'
 import { cn } from 'cn'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CheckIcon, CopyIcon } from "lucide-react"
+import { CheckIcon, CopyIcon, Trash2Icon } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ export type CodeBlockFile = {
   showLineNumbers?: boolean
 }
 
-export type CodeBlockProps = React.ComponentProps<'div'> & {
+export type CodeBlockProps = Omit<React.ComponentProps<'div'>, 'onChange'> & {
   code?: string
   language?: BundledLanguage
   filename?: string
@@ -30,6 +30,9 @@ export type CodeBlockProps = React.ComponentProps<'div'> & {
   highlightLines?: number[]
   highlightClassName?: string
   showLineNumbers?: boolean
+  editable?: boolean
+  onChange?: (code: string) => void
+  onDelete?: () => void
 }
 
 // Internal Helpers
@@ -221,6 +224,76 @@ function CodeBlockPane({
   )
 }
 
+// Editable Pane
+
+type CodeBlockEditablePaneProps = {
+  code: string
+  showLineNumbers?: boolean
+  onChange?: (code: string) => void
+  className?: string
+  style?: React.CSSProperties
+}
+
+function CodeBlockEditablePane({
+  code,
+  showLineNumbers = false,
+  onChange,
+  className,
+  style,
+}: CodeBlockEditablePaneProps) {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${Math.max(90, textareaRef.current.scrollHeight)}px`
+    }
+  }, [code])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const target = e.currentTarget
+      const start = target.selectionStart
+      const end = target.selectionEnd
+      const val = target.value
+      const newVal = val.substring(0, start) + '  ' + val.substring(end)
+      onChange?.(newVal)
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + 2
+      }, 0)
+    }
+  }
+
+  const lines = code.split('\n')
+  const lineCount = Math.max(1, lines.length)
+
+  return (
+    <div
+      data-slot='code-block-pane'
+      className={cn('flex items-stretch font-mono text-sm leading-6 p-0 overflow-hidden', className)}
+      style={style}
+    >
+      {showLineNumbers && (
+        <div className='text-muted-foreground/50 py-3 pl-3 pr-2 select-none text-right font-mono text-xs leading-6 shrink-0 flex flex-col border-r border-border/40 min-w-8'>
+          {Array.from({ length: lineCount }).map((_, i) => (
+            <span key={i} className='leading-6'>{i + 1}</span>
+          ))}
+        </div>
+      )}
+      <textarea
+        ref={textareaRef}
+        value={code}
+        onChange={(e) => onChange?.(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="// Escribe tu código aquí..."
+        spellCheck={false}
+        className='flex-1 min-h-[90px] py-3 px-3 bg-transparent text-foreground placeholder:text-muted-foreground/50 outline-none resize-none font-mono text-sm leading-6 whitespace-pre overflow-x-auto'
+      />
+    </div>
+  )
+}
+
 function CodeBlock({
   code,
   language = 'tsx',
@@ -232,6 +305,9 @@ function CodeBlock({
   highlightLines,
   highlightClassName,
   showLineNumbers,
+  editable,
+  onChange,
+  onDelete,
   ...props
 }: CodeBlockProps) {
   // Normalise to a files array so the rest of the component is uniform
@@ -241,7 +317,7 @@ function CodeBlock({
     if (code !== undefined) {
       return [
         {
-          filename: filename ? `${filename}.${language}` : `index.${language}`,
+          filename: filename ? filename : 'Código',
           code,
           language,
           panelClassName,
@@ -257,14 +333,11 @@ function CodeBlock({
   }, [files, code, language, filename, panelClassName, paneStyle, highlightLines, highlightClassName, showLineNumbers])
 
   const isMulti = normalizedFiles.length > 1
-  const [activeTab, setActiveTab] = React.useState(normalizedFiles[0]?.filename ?? '')
+  const [selectedTab, setSelectedTab] = React.useState<string | null>(null)
 
-  // Keep activeTab in sync if files list changes
-  React.useEffect(() => {
-    if (normalizedFiles.length > 0 && !normalizedFiles.some(f => f.filename === activeTab)) {
-      setActiveTab(normalizedFiles[0].filename)
-    }
-  }, [normalizedFiles, activeTab])
+  const activeTab = (selectedTab && normalizedFiles.some(f => f.filename === selectedTab))
+    ? selectedTab
+    : (normalizedFiles[0]?.filename ?? '')
 
   const activeFile = normalizedFiles.find(f => f.filename === activeTab) ?? normalizedFiles[0]
 
@@ -282,7 +355,7 @@ function CodeBlock({
         className='border-border flex items-center justify-between gap-2 border-b'
       >
         {isMulti ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className='flex-1'>
+          <Tabs value={activeTab} onValueChange={setSelectedTab} className='flex-1'>
             <TabsList variant='line' className='group-data-horizontal/tabs:h-auto'>
               {normalizedFiles.map(file => (
                 <TabsTrigger
@@ -304,11 +377,32 @@ function CodeBlock({
           </span>
         )}
 
-        {activeFile && <CodeBlockCopyButton code={activeFile.code} className='mr-1 shrink-0' />}
+        <div className='flex items-center gap-1 mr-1 shrink-0'>
+          {onDelete && (
+            <button
+              data-slot='code-block-delete'
+              aria-label='Eliminar bloque de código'
+              onClick={onDelete}
+              className='text-muted-foreground hover:text-destructive inline-flex items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer'
+              title='Eliminar bloque de código'
+            >
+              <Trash2Icon className='size-3.5' />
+            </button>
+          )}
+          {activeFile && <CodeBlockCopyButton code={activeFile.code} />}
+        </div>
       </div>
 
-      {/* Code pane – no copy button inside since header already has one */}
-      {activeFile && (
+      {/* Code pane */}
+      {editable ? (
+        <CodeBlockEditablePane
+          code={activeFile?.code ?? ''}
+          showLineNumbers={showLineNumbers}
+          onChange={onChange}
+          className={activeFile?.panelClassName}
+          style={activeFile?.paneStyle}
+        />
+      ) : activeFile && (
         <CodeBlockPane
           key={activeFile.filename}
           code={activeFile.code}

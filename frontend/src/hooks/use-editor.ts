@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react"
 
 export type TextFormat = "normal" | "heading_1" | "heading_2" | "heading_3"
 export type TextAlignment = "align_left" | "align_center" | "align_right" | "align_justify"
@@ -25,6 +25,8 @@ export interface EditorActiveState {
 }
 
 export interface UseEditorOptions extends EditorActiveState {
+    value?: string
+    onChange?: (value: string) => void
     onSetTextFormatting?: (format: TextFormat) => void
     onIndentDecrease?: () => void
     onIndentIncrease?: () => void
@@ -52,8 +54,18 @@ export interface UseEditorOptions extends EditorActiveState {
     onToggleCompact?: () => void
 }
 
+const formatToTag: Record<TextFormat, string> = {
+    normal: "p",
+    heading_1: "h1",
+    heading_2: "h2",
+    heading_3: "h3",
+}
+
 export const useEditor = (options?: UseEditorOptions) => {
     
+    const editorRef = useRef<HTMLDivElement>(null)
+    const isInternalUpdate = useRef(false)
+
     const [state, setState] = useState<Required<EditorActiveState>>({
         isBold: false,
         isItalic: false,
@@ -73,6 +85,100 @@ export const useEditor = (options?: UseEditorOptions) => {
         textFormatting: "normal",
         textAlign: "align_left",
     })
+
+    const detectCurrentFormat = useCallback((): TextFormat => {
+        const selection = window.getSelection()
+        if (!selection || selection.rangeCount === 0 || !editorRef.current) return "normal"
+
+        let node: Node | null = selection.anchorNode
+        while (node && node !== editorRef.current) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = (node as HTMLElement).tagName.toLowerCase()
+                if (tagName === "h1") return "heading_1"
+                if (tagName === "h2") return "heading_2"
+                if (tagName === "h3") return "heading_3"
+                if (tagName === "p") return "normal"
+            }
+            node = node.parentNode
+        }
+        return "normal"
+    }, [])
+
+    const handleSelectionChange = useCallback(() => {
+        if (!editorRef.current) return
+        const selection = window.getSelection()
+        if (!selection || selection.rangeCount === 0) return
+
+        if (editorRef.current.contains(selection.anchorNode)) {
+            const detected = detectCurrentFormat()
+            setState((prev) => {
+                if (prev.textFormatting === detected) return prev
+                return { ...prev, textFormatting: detected }
+            })
+        }
+    }, [detectCurrentFormat])
+
+    const onSetTextFormatting = useCallback((format: TextFormat) => {
+        setState((prev) => ({ ...prev, textFormatting: format }))
+        options?.onSetTextFormatting?.(format)
+
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        const tag = formatToTag[format]
+        document.execCommand("formatBlock", false, tag)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+    }, [options])
+
+    useEffect(() => {
+        if (!editorRef.current) return
+        if (isInternalUpdate.current) {
+            isInternalUpdate.current = false
+            return
+        }
+        if (options?.value !== undefined && editorRef.current.innerHTML !== options.value) {
+            editorRef.current.innerHTML = options.value || "<p><br></p>"
+        }
+    }, [options?.value])
+
+    useEffect(() => {
+        document.addEventListener("selectionchange", handleSelectionChange)
+        return () => {
+            document.removeEventListener("selectionchange", handleSelectionChange)
+        }
+    }, [handleSelectionChange])
+
+    const handleInput = useCallback(() => {
+        if (!editorRef.current) return
+        const html = editorRef.current.innerHTML
+        isInternalUpdate.current = true
+        options?.onChange?.(html)
+        handleSelectionChange()
+    }, [options, handleSelectionChange])
+
+    const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            const detected = detectCurrentFormat()
+            if (detected.startsWith("heading_")) {
+                setTimeout(() => {
+                    document.execCommand("formatBlock", false, "p")
+                    handleSelectionChange()
+                    if (editorRef.current && options?.onChange) {
+                        isInternalUpdate.current = true
+                        options.onChange(editorRef.current.innerHTML)
+                    }
+                }, 0)
+            }
+        }
+    }, [detectCurrentFormat, handleSelectionChange, options])
 
     const isCompact = options?.isCompact ?? state.isCompact
 
@@ -107,11 +213,6 @@ export const useEditor = (options?: UseEditorOptions) => {
     const isAlignCenter = textAlign === "align_center"
     const isAlignRight = textAlign === "align_right"
     const isAlignJustify = textAlign === "align_justify"
-
-    const onSetTextFormatting = useCallback((format: TextFormat) => {
-        setState((prev) => ({ ...prev, textFormatting: format }))
-        options?.onSetTextFormatting?.(format)
-    }, [options])
 
     const onSetNormal = useCallback(() => {
         onSetTextFormatting("normal")
@@ -268,6 +369,10 @@ export const useEditor = (options?: UseEditorOptions) => {
     }, [options])
 
     return {
+        editorRef,
+        handleInput,
+        handleKeyDown,
+        handleSelectionChange,
         isBold,
         isItalic,
         isUnderline,

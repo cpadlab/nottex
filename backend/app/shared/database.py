@@ -58,6 +58,15 @@ class DatabaseManager:
             raise e
 
 
+    async def ping(self) -> None:
+        """
+        Check that the configured MongoDB client can currently serve requests.
+        """
+        if not self.client:
+            raise RuntimeError("Database client is not connected.")
+        await self.client.admin.command("ping")
+
+
     def close(self) -> None:
         """
         Close the connection pool securely when shutting down the application.

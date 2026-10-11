@@ -56,6 +56,12 @@ only to the `users` and `notes` databases. The application connects as that user
 the root account is reserved for MongoDB initialization and its health check.
 Neither MongoDB nor Mailpit publishes a host port in this stack.
 
+In production, the backend exits if MongoDB cannot connect or the required
+indexes cannot be created. `/ping` is a liveness check; `/ready` checks startup
+initialization and pings MongoDB, and Docker uses `/ready` as the container
+health check. A database outage after startup therefore makes the backend
+unready without making its process-liveness check fail.
+
 API rate limits use atomic MongoDB token buckets, so they apply across backend
 replicas. Defaults include 20 login attempts per IP per minute, 10 attempts per
 email per 15 minutes, 5 registrations per IP per hour, 3 verification or reset

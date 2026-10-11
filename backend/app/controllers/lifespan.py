@@ -17,7 +17,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Initializes database connection pool and background services on startup and closes them on shutdown.
     """
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} [{settings.ENVIRONMENT}]...")
-    
+    app.state.ready = False
+
     try:
         await db.connect()
         await db.users["users"].create_index("email", unique=True)
@@ -26,11 +27,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await db.notes["notes"].create_index([("user_id", 1), ("workspace_id", 1)])
         token_cleanup_service.start()
     except Exception as e:
-        logger.warning(f"Database connection or index creation failed during startup: {e}. Continuing in degraded mode.")
+        token_cleanup_service.stop()
+        db.close()
+        if settings.ENVIRONMENT.lower() == "production":
+            logger.exception("Database initialization failed; refusing to start in production.")
+            raise
+        logger.warning(f"Database initialization failed; starting unready in development: {e}")
+    else:
+        app.state.ready = True
 
     yield
 
     logger.info(f"Shutting down {settings.APP_NAME}...")
+    app.state.ready = False
     try:
         token_cleanup_service.stop()
     except Exception as e:

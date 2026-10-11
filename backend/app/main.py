@@ -1,10 +1,11 @@
 from itertools import cycle
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.controllers.lifespan import lifespan
 from app.endpoints.router import api_v1_router
+from app.shared.database import db
 from app.shared.logger import get_logger
 
 logger = get_logger(__name__)
@@ -46,3 +47,25 @@ def pong():
         dict: Alternating response dictionary.
     """
     return next(pp_responses)
+
+
+@api.get("/ready", tags=["Core"])
+async def readiness():
+    """
+    Return ready only after startup initialization and a live MongoDB ping.
+    """
+    if not getattr(api.state, "ready", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="service_not_ready",
+        )
+
+    try:
+        await db.ping()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="database_unavailable",
+        )
+
+    return {"status": "ready"}

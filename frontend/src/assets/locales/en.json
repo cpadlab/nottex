@@ -77,6 +77,7 @@
         "unauthorized": "Unauthorized. Please log in to continue.",
         "token_invalid_or_expired": "Session has expired or token is invalid.",
         "database_unavailable": "Database service unavailable.",
+        "request_too_large": "The request exceeds the maximum allowed size.",
         "rate_limit_exceeded": "Too many requests. Please wait and try again.",
         "rate_limit_unavailable": "Request protection is temporarily unavailable. Please try again shortly.",
         "collaborator_limit_reached": "This note has reached its collaborator limit.",

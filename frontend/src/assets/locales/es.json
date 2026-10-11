@@ -77,6 +77,7 @@
         "unauthorized": "No autorizado. Inicie sesión para continuar.",
         "token_invalid_or_expired": "La sesión ha expirado o el token es inválido.",
         "database_unavailable": "Servicio de base de datos no disponible.",
+        "request_too_large": "La solicitud supera el tamaño máximo permitido.",
         "rate_limit_exceeded": "Hay demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
         "rate_limit_unavailable": "La protección de solicitudes no está disponible temporalmente. Inténtalo de nuevo en breve.",
         "collaborator_limit_reached": "Esta nota ha alcanzado el límite de colaboradores.",

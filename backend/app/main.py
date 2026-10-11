@@ -7,6 +7,7 @@ from app.controllers.lifespan import lifespan
 from app.endpoints.router import api_v1_router
 from app.shared.database import db
 from app.shared.logger import get_logger
+from app.shared.request_limits import RequestBodyLimitMiddleware
 
 logger = get_logger(__name__)
 
@@ -18,6 +19,11 @@ api = FastAPI(
 )
 
 app = api
+
+api.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_bytes=settings.MAX_REQUEST_BODY_BYTES,
+)
 
 api.add_middleware(
     CORSMiddleware,

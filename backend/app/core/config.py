@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     DATABASE_WAIT_QUEUE_TIMEOUT_MS: int = 5000
 
     MAX_COLLABORATORS_PER_NOTE: int = 50
+    MAX_REQUEST_BODY_BYTES: int = 2 * 1024 * 1024
+    MAX_NOTE_CONTENT_BYTES: int = 1024 * 1024
+    MAX_TAGS_PER_NOTE: int = 50
+    MAX_TAG_LENGTH: int = 50
 
     EMAILS_ENABLED: bool = True
     SMTP_HOST: str = "localhost"
@@ -73,6 +77,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security_settings(self):
+        if self.MAX_REQUEST_BODY_BYTES < self.MAX_NOTE_CONTENT_BYTES or self.MAX_NOTE_CONTENT_BYTES <= 0:
+            raise ValueError("Request body limit must be positive and at least as large as the note content limit")
+        if self.MAX_TAGS_PER_NOTE <= 0 or self.MAX_TAG_LENGTH <= 0 or self.MAX_COLLABORATORS_PER_NOTE <= 0:
+            raise ValueError("Note list and collaborator limits must be positive")
+
         if not self.CORS_ALLOW_ORIGINS or "*" in self.CORS_ALLOW_ORIGINS:
             raise ValueError("CORS_ALLOW_ORIGINS must contain explicit origins and cannot contain '*'")
         if any("*" in value for value in self.CORS_ALLOW_METHODS + self.CORS_ALLOW_HEADERS + self.CORS_EXPOSE_HEADERS):

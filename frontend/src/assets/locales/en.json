@@ -102,6 +102,9 @@
         "collaborator_user_not_found": "User with that email is not registered in Nottex.",
         "cannot_share_with_yourself": "You cannot share a note with yourself.",
         "invalid_credentials": "The credentials provided are invalid.",
+        "invalid_password": "The password provided is incorrect.",
+        "invalid_current_password": "The current password provided is incorrect.",
+        "email_same_as_current": "The new email address cannot be the same as your current email.",
         "invalid_totp_code": "The two-factor authentication code is invalid or expired.",
         "totp_code_required": "A two-factor authentication code is required.",
         "no_pending_totp_setup": "There is no pending 2FA setup to verify.",
@@ -118,6 +121,11 @@
         "verification_email_sent": "A new verification email has been sent.",
         "forgot_password_email_sent": "If the email is registered, you will receive password reset instructions.",
         "password_reset_success": "Your password has been successfully reset."
+    },
+    "user": {
+        "profile_updated_success": "Profile updated successfully.",
+        "email_updated_success": "Email address updated. A verification link has been sent to your new email.",
+        "language_updated_success": "Language preference updated successfully."
     },
     "workspace": {
         "created_success": "Workspace created successfully.",

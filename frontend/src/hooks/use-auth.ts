@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import authService from "@/services/auth";
-import type { AuthResponse, LoginRequest, RegisterRequest, User } from "@/types/auth";
+import type {
+    AuthResponse,
+    ChangeEmailRequest,
+    ChangeLanguageRequest,
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    UpdateProfileRequest,
+    User,
+    UserActionResponse,
+} from "@/types/auth";
 
 export interface UseAuthReturn {
     user: User | null;
@@ -10,6 +20,10 @@ export interface UseAuthReturn {
     loginWithToken: (token: string) => Promise<User | null>;
     login: (data: LoginRequest) => Promise<AuthResponse>;
     register: (data: RegisterRequest) => Promise<User | null>;
+    updateProfile: (data: UpdateProfileRequest) => Promise<UserActionResponse>;
+    changePassword: (data: ChangePasswordRequest) => Promise<UserActionResponse>;
+    changeEmail: (data: ChangeEmailRequest) => Promise<UserActionResponse>;
+    changeLanguage: (data: ChangeLanguageRequest) => Promise<UserActionResponse>;
     logout: () => void;
 }
 
@@ -79,6 +93,45 @@ export function useAuth(): UseAuthReturn {
         []
     );
 
+    const updateProfile = useCallback(
+        async (data: UpdateProfileRequest): Promise<UserActionResponse> => {
+            const res = await authService.updateProfile(data);
+            if (res.user) {
+                setUser(res.user);
+            }
+            return res;
+        },
+        []
+    );
+
+    const changePassword = useCallback(
+        async (data: ChangePasswordRequest): Promise<UserActionResponse> => {
+            return await authService.changePassword(data);
+        },
+        []
+    );
+
+    const changeEmail = useCallback(
+        async (data: ChangeEmailRequest): Promise<UserActionResponse> => {
+            const res = await authService.changeEmail(data);
+            if (res.user) {
+                setUser(res.user);
+            }
+            return res;
+        },
+        []
+    );
+
+    const changeLanguage = useCallback(
+        async (data: ChangeLanguageRequest): Promise<UserActionResponse> => {
+            const res = await authService.changeLanguage(data);
+            if (res.user) {
+                setUser(res.user);
+            }
+            return res;
+        },
+        []
+    );
 
     const logout = useCallback(() => {
         authService.logout();
@@ -97,7 +150,12 @@ export function useAuth(): UseAuthReturn {
         loginWithToken,
         login,
         register,
+        updateProfile,
+        changePassword,
+        changeEmail,
+        changeLanguage,
         logout,
     };
 }
+
 

@@ -102,6 +102,9 @@
         "collaborator_user_not_found": "El usuario con ese correo no está registrado en Nottex.",
         "cannot_share_with_yourself": "No puedes compartir una nota contigo mismo.",
         "invalid_credentials": "Las credenciales introducidas no son correctas.",
+        "invalid_password": "La contraseña introducida es incorrecta.",
+        "invalid_current_password": "La contraseña actual es incorrecta.",
+        "email_same_as_current": "El nuevo correo electrónico no puede ser igual al actual.",
         "invalid_totp_code": "El código de autenticación de dos factores es inválido o ha caducado.",
         "totp_code_required": "Se requiere un código de autenticación de dos factores.",
         "no_pending_totp_setup": "No hay ninguna configuración de 2FA pendiente de verificación.",
@@ -118,6 +121,11 @@
         "verification_email_sent": "Se ha enviado un nuevo correo de verificación.",
         "forgot_password_email_sent": "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.",
         "password_reset_success": "Tu contraseña ha sido restablecida con éxito."
+    },
+    "user": {
+        "profile_updated_success": "Perfil actualizado con éxito.",
+        "email_updated_success": "Correo electrónico actualizado. Se ha enviado un enlace de confirmación al nuevo correo.",
+        "language_updated_success": "Preferencia de idioma guardada con éxito."
     },
     "workspace": {
         "created_success": "Espacio de trabajo creado con éxito.",

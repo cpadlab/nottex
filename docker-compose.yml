@@ -30,6 +30,11 @@ services:
       DEBUG: "false"
       DATABASE_URL: mongodb://nottex_app:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD to a random hex value}@mongodb:27017/?authSource=admin
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY to a cryptographically random secret}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Set TOTP_ENCRYPTION_KEY to a generated Fernet key and keep it stable}
+      SSE_MAX_CONNECTIONS_PER_PROCESS: ${SSE_MAX_CONNECTIONS_PER_PROCESS:-100}
+      SSE_MAX_CONNECTIONS_PER_USER: ${SSE_MAX_CONNECTIONS_PER_USER:-5}
+      SSE_QUEUE_MAX_SIZE: ${SSE_QUEUE_MAX_SIZE:-8}
+      SSE_MAX_EVENT_BYTES: ${SSE_MAX_EVENT_BYTES:-32768}
       FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL to the public application URL}
       CORS_ALLOW_ORIGINS: "${CORS_ALLOW_ORIGINS:?Set CORS_ALLOW_ORIGINS to a JSON array of explicit HTTPS origins}"
       EMAILS_ENABLED: ${EMAILS_ENABLED:-true}

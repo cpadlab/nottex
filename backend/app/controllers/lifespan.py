@@ -19,8 +19,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     try:
         await db.connect()
+        await db.users["users"].create_index("email", unique=True)
+        await db.notes["workspaces"].create_index([("user_id", 1), ("parent_id", 1)])
+        await db.notes["notes"].create_index([("user_id", 1), ("workspace_id", 1)])
     except Exception as e:
-        logger.warning(f"Database connection failed during startup: {e}. Continuing in degraded mode.")
+        logger.warning(f"Database connection or index creation failed during startup: {e}. Continuing in degraded mode.")
 
     yield
 

@@ -17,6 +17,16 @@ services:
       retries: 5
       start_period: 5s
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: nottex-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+
 volumes:
   mongodb_data:
     name: nottex_mongodb_data

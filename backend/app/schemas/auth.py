@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, Optional
 from app.schemas.user import UserResponse
 
 
@@ -46,11 +46,43 @@ class RegisterRequest(BaseModel):
         return v
 
 
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+    totp_code: Optional[str] = Field(default=None)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+
 class AuthResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
-    user: UserResponse
+    user: Optional[UserResponse] = None
+    requires_totp: bool = False
     message: str = "auth.register_success"
+
+
+class TotpSetupResponse(BaseModel):
+    secret: str
+    provisioning_uri: str
+
+
+class TotpVerifyRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=6)
+
+
+class TotpDisableRequest(BaseModel):
+    password: Optional[str] = None
+    code: Optional[str] = None
+
+
+class TotpStatusResponse(BaseModel):
+    is_enabled: bool
 
 
 class VerifyEmailRequest(BaseModel):

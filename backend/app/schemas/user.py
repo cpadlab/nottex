@@ -13,6 +13,7 @@ class UserBase(BaseModel):
 class UserResponse(UserBase):
     id: str = Field(...)
     is_verified: bool = Field(default=False)
+    is_totp_enabled: bool = Field(default=False)
     last_login: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(...)
     updated_at: datetime = Field(...)

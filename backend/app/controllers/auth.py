@@ -121,6 +121,76 @@ async def send_reset_password_email_task(
         logger.error(f"Error sending password reset email to {email}: {e}")
 
 
+async def process_resend_verification_request(email: str) -> None:
+    """Look up and send only after the same generic HTTP response has been returned."""
+    try:
+        if not db.is_connected:
+            return
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"email": email})
+        if not user or user.get("is_verified") is True:
+            return
+
+        now = datetime.now(timezone.utc)
+        token = generate_verification_token()
+        expires_at = now + timedelta(hours=settings.VERIFICATION_TOKEN_EXPIRE_HOURS)
+        updated = await users_collection.update_one(
+            {"_id": user["_id"], "is_verified": {"$ne": True}},
+            {
+                "$set": {
+                    "verification_token": hash_one_time_token(token),
+                    "verification_token_expires_at": expires_at,
+                    "verification_email_sent_at": now,
+                    "updated_at": now,
+                }
+            },
+        )
+        if updated.matched_count != 1:
+            return
+        await send_verification_email_task(
+            email=email,
+            first_name=user.get("first_name", ""),
+            token=token,
+            language=user.get("language", "es"),
+        )
+    except Exception:
+        logger.exception("Could not process verification email request")
+
+
+async def process_forgot_password_request(email: str) -> None:
+    """Perform account-dependent recovery work after returning the generic response."""
+    try:
+        if not db.is_connected:
+            return
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"email": email})
+        if not user:
+            return
+
+        now = datetime.now(timezone.utc)
+        token = generate_verification_token()
+        expires_at = now + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "password_reset_token": hash_one_time_token(token),
+                    "password_reset_token_expires_at": expires_at,
+                    "password_reset_sent_at": now,
+                    "updated_at": now,
+                }
+            },
+        )
+        await send_reset_password_email_task(
+            email=email,
+            first_name=user.get("first_name", ""),
+            token=token,
+            language=user.get("language", "es"),
+        )
+    except Exception:
+        logger.exception("Could not process password recovery request")
+
+
 async def send_password_changed_email_task(
     email: str,
     first_name: str,
@@ -435,46 +505,7 @@ class AuthController:
                 detail="error.database_unavailable",
             )
 
-        users_collection = db.users["users"]
-
-        user = await users_collection.find_one({"email": payload.email})
-        if not user:
-            return ResendVerificationResponse(
-                message="auth.verification_email_sent",
-            )
-
-        if user.get("is_verified") is True:
-            return ResendVerificationResponse(
-                message="auth.verification_email_sent",
-            )
-
-        now = datetime.now(timezone.utc)
-        token = generate_verification_token()
-        token_expires_at = now + timedelta(hours=settings.VERIFICATION_TOKEN_EXPIRE_HOURS)
-
-        await users_collection.update_one(
-            {"_id": user["_id"]},
-            {
-                "$set": {
-                    "verification_token": hash_one_time_token(token),
-                    "verification_token_expires_at": token_expires_at,
-                    "verification_email_sent_at": now,
-                    "updated_at": now,
-                }
-            },
-        )
-
-        first_name = user.get("first_name", "")
-        language = user.get("language", "es")
-        asyncio.create_task(
-            send_verification_email_task(
-                email=payload.email,
-                first_name=first_name,
-                token=token,
-                language=language,
-            )
-        )
-
+        asyncio.create_task(process_resend_verification_request(payload.email))
         return ResendVerificationResponse(
             message="auth.verification_email_sent",
         )
@@ -603,41 +634,7 @@ class AuthController:
                 detail="error.database_unavailable",
             )
 
-        users_collection = db.users["users"]
-        user = await users_collection.find_one({"email": payload.email})
-
-        if not user:
-            return ForgotPasswordResponse(
-                message="auth.forgot_password_email_sent",
-            )
-
-        now = datetime.now(timezone.utc)
-        token = generate_verification_token()
-        token_expires_at = now + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
-
-        await users_collection.update_one(
-            {"_id": user["_id"]},
-            {
-                "$set": {
-                    "password_reset_token": hash_one_time_token(token),
-                    "password_reset_token_expires_at": token_expires_at,
-                    "password_reset_sent_at": now,
-                    "updated_at": now,
-                }
-            },
-        )
-
-        first_name = user.get("first_name", "")
-        language = user.get("language", "es")
-        asyncio.create_task(
-            send_reset_password_email_task(
-                email=payload.email,
-                first_name=first_name,
-                token=token,
-                language=language,
-            )
-        )
-
+        asyncio.create_task(process_forgot_password_request(payload.email))
         return ForgotPasswordResponse(
             message="auth.forgot_password_email_sent",
         )

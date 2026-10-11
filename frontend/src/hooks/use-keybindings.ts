@@ -12,6 +12,11 @@ export interface UseKeybindingsOptions {
     onAlignCenter?: () => void
     onAlignRight?: () => void
     onAlignJustify?: () => void
+    onList?: () => void
+    onListOrdered?: () => void
+    onListTodo?: () => void
+    onListIndentIncrease?: () => void
+    onListIndentDecrease?: () => void
     detectCurrentFormat?: () => TextFormat
     handleSelectionChange?: () => void
     onChange?: (html: string) => void
@@ -35,6 +40,11 @@ export const useKeybindings = ({
     onAlignCenter,
     onAlignRight,
     onAlignJustify,
+    onList,
+    onListOrdered,
+    onListTodo,
+    onListIndentIncrease,
+    onListIndentDecrease,
     detectCurrentFormat,
     handleSelectionChange,
     onChange,
@@ -45,6 +55,16 @@ export const useKeybindings = ({
     const handleKeyDown = useCallback(
         (e: KeyboardEvent<HTMLDivElement>) => {
             const isCtrlOrMeta = e.ctrlKey || e.metaKey
+
+            if (e.key === 'Tab') {
+                e.preventDefault()
+                if (e.shiftKey) {
+                    onListIndentDecrease?.()
+                } else {
+                    onListIndentIncrease?.()
+                }
+                return
+            }
 
             if (isCtrlOrMeta) {
                 const key = e.key.toLowerCase()
@@ -85,6 +105,18 @@ export const useKeybindings = ({
                     return
                 }
 
+                if (e.key === '[') {
+                    e.preventDefault()
+                    onListIndentDecrease?.()
+                    return
+                }
+
+                if (e.key === ']') {
+                    e.preventDefault()
+                    onListIndentIncrease?.()
+                    return
+                }
+
                 if (e.shiftKey) {
                     if (key === 'l' || e.code === 'KeyL') {
                         e.preventDefault()
@@ -106,10 +138,90 @@ export const useKeybindings = ({
                         onAlignJustify?.()
                         return
                     }
+                    if (key === '8' || e.code === 'Digit8') {
+                        e.preventDefault()
+                        onList?.()
+                        return
+                    }
+                    if (key === '7' || e.code === 'Digit7') {
+                        e.preventDefault()
+                        onListOrdered?.()
+                        return
+                    }
+                    if (key === '9' || e.code === 'Digit9') {
+                        e.preventDefault()
+                        onListTodo?.()
+                        return
+                    }
                 }
             }
 
             if (e.key === 'Enter' && !e.shiftKey) {
+                const selection = window.getSelection()
+                if (selection && selection.rangeCount > 0 && editorRef?.current) {
+                    let node: Node | null = selection.anchorNode
+                    let todoLi: HTMLElement | null = null
+                    while (node && node !== editorRef.current) {
+                        if (
+                            node.nodeType === Node.ELEMENT_NODE &&
+                            (node as HTMLElement).getAttribute('data-type') === 'todo-item'
+                        ) {
+                            todoLi = node as HTMLElement
+                            break
+                        }
+                        node = node.parentNode
+                    }
+
+                    if (todoLi) {
+                        e.preventDefault()
+                        const contentSpan = todoLi.querySelector('span[data-todo-content]')
+                        const text = contentSpan ? contentSpan.textContent?.trim() || '' : todoLi.textContent?.trim() || ''
+
+                        if (text === '') {
+                            const p = document.createElement('p')
+                            p.innerHTML = '<br>'
+                            const todoList = todoLi.closest('ul[data-type=todo-list]')
+                            if (todoList && todoList.children.length === 1) {
+                                todoList.replaceWith(p)
+                            } else {
+                                todoLi.replaceWith(p)
+                            }
+                            const range = document.createRange()
+                            range.selectNodeContents(p)
+                            range.collapse(false)
+                            selection.removeAllRanges()
+                            selection.addRange(range)
+                        } else {
+                            const newLi = document.createElement('li')
+                            newLi.setAttribute('data-type', 'todo-item')
+                            newLi.setAttribute('data-checked', 'false')
+                            newLi.className = 'flex items-start gap-2 my-1'
+                            newLi.innerHTML =
+                                '<span data-todo-checkbox contenteditable="false" class="inline-flex items-center pt-0.5 select-none"></span><span data-todo-content class="flex-1 outline-none min-w-0"><br></span>'
+
+                            todoLi.after(newLi)
+
+                            const newContentSpan = newLi.querySelector('span[data-todo-content]')
+                            if (newContentSpan) {
+                                const range = document.createRange()
+                                range.selectNodeContents(newContentSpan)
+                                range.collapse(false)
+                                selection.removeAllRanges()
+                                selection.addRange(range)
+                            }
+                        }
+
+                        if (onChange && editorRef.current) {
+                            if (isInternalUpdate) {
+                                isInternalUpdate.current = true
+                            }
+                            onChange(editorRef.current.innerHTML)
+                        }
+                        handleSelectionChange?.()
+                        return
+                    }
+                }
+
                 const detected = detectCurrentFormat?.()
                 if (detected && detected.startsWith('heading_')) {
                     setTimeout(() => {
@@ -124,6 +236,54 @@ export const useKeybindings = ({
                     }, 0)
                 }
             }
+
+            if (e.key === 'Backspace') {
+                const selection = window.getSelection()
+                if (selection && selection.rangeCount > 0 && editorRef?.current) {
+                    let node: Node | null = selection.anchorNode
+                    let todoLi: HTMLElement | null = null
+                    while (node && node !== editorRef.current) {
+                        if (
+                            node.nodeType === Node.ELEMENT_NODE &&
+                            (node as HTMLElement).getAttribute('data-type') === 'todo-item'
+                        ) {
+                            todoLi = node as HTMLElement
+                            break
+                        }
+                        node = node.parentNode
+                    }
+
+                    if (todoLi) {
+                        const contentSpan = todoLi.querySelector('span[data-todo-content]')
+                        const text = contentSpan ? contentSpan.textContent?.trim() || '' : todoLi.textContent?.trim() || ''
+                        if (text === '') {
+                            e.preventDefault()
+                            const p = document.createElement('p')
+                            p.innerHTML = '<br>'
+                            const todoList = todoLi.closest('ul[data-type=todo-list]')
+                            if (todoList && todoList.children.length === 1) {
+                                todoList.replaceWith(p)
+                            } else {
+                                todoLi.replaceWith(p)
+                            }
+                            const range = document.createRange()
+                            range.selectNodeContents(p)
+                            range.collapse(false)
+                            selection.removeAllRanges()
+                            selection.addRange(range)
+
+                            if (onChange && editorRef.current) {
+                                if (isInternalUpdate) {
+                                    isInternalUpdate.current = true
+                                }
+                                onChange(editorRef.current.innerHTML)
+                            }
+                            handleSelectionChange?.()
+                            return
+                        }
+                    }
+                }
+            }
         },
         [
             onBold,
@@ -136,6 +296,11 @@ export const useKeybindings = ({
             onAlignCenter,
             onAlignRight,
             onAlignJustify,
+            onList,
+            onListOrdered,
+            onListTodo,
+            onListIndentIncrease,
+            onListIndentDecrease,
             detectCurrentFormat,
             handleSelectionChange,
             onChange,

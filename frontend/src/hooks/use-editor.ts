@@ -137,6 +137,40 @@ export const useEditor = (options?: UseEditorOptions) => {
                 detectedAlign = "align_left"
             }
 
+            let detectedList = false
+            let detectedListOrdered = false
+            let detectedListTodo = false
+
+            let listNode: Node | null = selection.anchorNode
+            while (listNode && listNode !== editorRef.current) {
+                if (listNode.nodeType === Node.ELEMENT_NODE) {
+                    const el = listNode as HTMLElement
+                    const tag = el.tagName.toLowerCase()
+                    if (tag === "ul" && el.getAttribute("data-type") === "todo-list") {
+                        detectedListTodo = true
+                        break
+                    }
+                    if (tag === "li" && el.getAttribute("data-type") === "todo-item") {
+                        detectedListTodo = true
+                        break
+                    }
+                    if (tag === "ol") {
+                        detectedListOrdered = true
+                        break
+                    }
+                    if (tag === "ul") {
+                        detectedList = true
+                        break
+                    }
+                }
+                listNode = listNode.parentNode
+            }
+
+            if (!detectedList && !detectedListOrdered && !detectedListTodo) {
+                detectedList = document.queryCommandState("insertUnorderedList")
+                detectedListOrdered = document.queryCommandState("insertOrderedList")
+            }
+
             setState((prev) => {
                 if (
                     prev.textFormatting === detected &&
@@ -146,7 +180,10 @@ export const useEditor = (options?: UseEditorOptions) => {
                     prev.isStrikethrough === isStrikethroughState &&
                     prev.isSuperscript === isSuperscriptState &&
                     prev.isSubscript === isSubscriptState &&
-                    prev.textAlign === detectedAlign
+                    prev.textAlign === detectedAlign &&
+                    prev.isList === detectedList &&
+                    prev.isListOrdered === detectedListOrdered &&
+                    prev.isListTodo === detectedListTodo
                 ) {
                     return prev
                 }
@@ -160,6 +197,9 @@ export const useEditor = (options?: UseEditorOptions) => {
                     isSuperscript: isSuperscriptState,
                     isSubscript: isSubscriptState,
                     textAlign: detectedAlign,
+                    isList: detectedList,
+                    isListOrdered: detectedListOrdered,
+                    isListTodo: detectedListTodo,
                 }
             })
         }
@@ -369,6 +409,249 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onAlignJustify?.()
     }, [onSetTextAlign, options])
 
+    const onListIndentDecrease = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        document.execCommand("outdent", false)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onIndentDecrease?.()
+    }, [options, handleSelectionChange])
+
+    const onListIndentIncrease = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        document.execCommand("indent", false)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onIndentIncrease?.()
+    }, [options, handleSelectionChange])
+
+    const onList = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0) {
+            let node: Node | null = selection.anchorNode
+            let todoLi: HTMLElement | null = null
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).getAttribute("data-type") === "todo-item") {
+                    todoLi = node as HTMLElement
+                    break
+                }
+                node = node.parentNode
+            }
+            if (todoLi) {
+                const todoList = todoLi.closest("ul[data-type=todo-list]")
+                const contentSpan = todoLi.querySelector("span[data-todo-content]")
+                const innerHtml = contentSpan ? contentSpan.innerHTML : todoLi.innerHTML
+                todoLi.removeAttribute("data-type")
+                todoLi.removeAttribute("data-checked")
+                todoLi.className = ""
+                todoLi.innerHTML = innerHtml
+                if (todoList) {
+                    todoList.removeAttribute("data-type")
+                    todoList.className = ""
+                }
+            }
+        }
+
+        document.execCommand("insertUnorderedList", false)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleBulletList?.()
+    }, [options, handleSelectionChange])
+
+    const onListOrdered = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0) {
+            let node: Node | null = selection.anchorNode
+            let todoLi: HTMLElement | null = null
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).getAttribute("data-type") === "todo-item") {
+                    todoLi = node as HTMLElement
+                    break
+                }
+                node = node.parentNode
+            }
+            if (todoLi) {
+                const todoList = todoLi.closest("ul[data-type=todo-list]")
+                const contentSpan = todoLi.querySelector("span[data-todo-content]")
+                const innerHtml = contentSpan ? contentSpan.innerHTML : todoLi.innerHTML
+                todoLi.removeAttribute("data-type")
+                todoLi.removeAttribute("data-checked")
+                todoLi.className = ""
+                todoLi.innerHTML = innerHtml
+                if (todoList) {
+                    todoList.removeAttribute("data-type")
+                    todoList.className = ""
+                }
+            }
+        }
+
+        document.execCommand("insertOrderedList", false)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleOrderedList?.()
+    }, [options, handleSelectionChange])
+
+    const onListTodo = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        const selection = window.getSelection()
+        if (!selection || selection.rangeCount === 0) return
+
+        let node: Node | null = selection.anchorNode
+        let currentLi: HTMLElement | null = null
+        let currentBlock: HTMLElement | null = null
+
+        while (node && node !== editor) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const el = node as HTMLElement
+                if (el.tagName.toLowerCase() === "li") {
+                    currentLi = el
+                }
+                if (/^(p|h1|h2|h3|blockquote|div)$/i.test(el.tagName)) {
+                    if (!currentBlock) currentBlock = el
+                }
+            }
+            node = node.parentNode
+        }
+
+        if (currentLi && currentLi.getAttribute("data-type") === "todo-item") {
+            const todoList = currentLi.closest("ul[data-type=todo-list]")
+            const contentSpan = currentLi.querySelector("span[data-todo-content]")
+            const p = document.createElement("p")
+            p.innerHTML = contentSpan?.innerHTML || currentLi.innerHTML || "<br>"
+
+            if (todoList) {
+                if (todoList.children.length === 1) {
+                    todoList.replaceWith(p)
+                } else {
+                    currentLi.replaceWith(p)
+                }
+            } else {
+                currentLi.replaceWith(p)
+            }
+
+            const range = document.createRange()
+            range.selectNodeContents(p)
+            range.collapse(false)
+            selection.removeAllRanges()
+            selection.addRange(range)
+        } else if (currentLi) {
+            const textContent = currentLi.innerHTML
+            const ul = document.createElement("ul")
+            ul.setAttribute("data-type", "todo-list")
+            ul.className = "list-none my-2 pl-0 space-y-1"
+
+            const li = document.createElement("li")
+            li.setAttribute("data-type", "todo-item")
+            li.setAttribute("data-checked", "false")
+            li.className = "flex items-start gap-2 my-1"
+            li.innerHTML = `<span data-todo-checkbox contenteditable="false" class="inline-flex items-center pt-0.5 select-none"></span><span data-todo-content class="flex-1 outline-none min-w-0">${textContent || "<br>"}</span>`
+
+            ul.appendChild(li)
+            currentLi.replaceWith(ul)
+
+            const contentSpan = li.querySelector("span[data-todo-content]")
+            if (contentSpan) {
+                const range = document.createRange()
+                range.selectNodeContents(contentSpan)
+                range.collapse(false)
+                selection.removeAllRanges()
+                selection.addRange(range)
+            }
+        } else {
+            const targetBlock = currentBlock || (selection.anchorNode?.nodeType === Node.TEXT_NODE ? selection.anchorNode.parentElement : null)
+            const textContent = targetBlock && targetBlock !== editor ? targetBlock.innerHTML : (selection.toString() || "<br>")
+
+            const ul = document.createElement("ul")
+            ul.setAttribute("data-type", "todo-list")
+            ul.className = "list-none my-2 pl-0 space-y-1"
+
+            const li = document.createElement("li")
+            li.setAttribute("data-type", "todo-item")
+            li.setAttribute("data-checked", "false")
+            li.className = "flex items-start gap-2 my-1"
+            li.innerHTML = `<span data-todo-checkbox contenteditable="false" class="inline-flex items-center pt-0.5 select-none"></span><span data-todo-content class="flex-1 outline-none min-w-0">${textContent || "<br>"}</span>`
+
+            ul.appendChild(li)
+
+            if (targetBlock && targetBlock !== editor) {
+                targetBlock.replaceWith(ul)
+            } else {
+                const range = selection.getRangeAt(0)
+                range.deleteContents()
+                range.insertNode(ul)
+            }
+
+            const contentSpan = li.querySelector("span[data-todo-content]")
+            if (contentSpan) {
+                const range = document.createRange()
+                range.selectNodeContents(contentSpan)
+                range.collapse(false)
+                selection.removeAllRanges()
+                selection.addRange(range)
+            }
+        }
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleTodoList?.()
+    }, [options, handleSelectionChange])
+
     const { handleKeyDown } = useKeybindings({
         onBold,
         onItalic,
@@ -380,6 +663,11 @@ export const useEditor = (options?: UseEditorOptions) => {
         onAlignCenter,
         onAlignRight,
         onAlignJustify,
+        onList,
+        onListOrdered,
+        onListTodo,
+        onListIndentIncrease,
+        onListIndentDecrease,
         detectCurrentFormat,
         handleSelectionChange,
         onChange: options?.onChange,
@@ -437,43 +725,6 @@ export const useEditor = (options?: UseEditorOptions) => {
         onSetTextFormatting("heading_3")
     }, [onSetTextFormatting])
 
-    const onListIndentDecrease = useCallback(() => {
-        options?.onIndentDecrease?.()
-    }, [options])
-
-    const onListIndentIncrease = useCallback(() => {
-        options?.onIndentIncrease?.()
-    }, [options])
-
-    const onList = useCallback(() => {
-        setState((prev) => ({
-            ...prev,
-            isList: !prev.isList,
-            isListTodo: false,
-            isListOrdered: false,
-        }))
-        options?.onToggleBulletList?.()
-    }, [options])
-
-    const onListTodo = useCallback(() => {
-        setState((prev) => ({
-            ...prev,
-            isListTodo: !prev.isListTodo,
-            isList: false,
-            isListOrdered: false,
-        }))
-        options?.onToggleTodoList?.()
-    }, [options])
-
-    const onListOrdered = useCallback(() => {
-        setState((prev) => ({
-            ...prev,
-            isListOrdered: !prev.isListOrdered,
-            isList: false,
-            isListTodo: false,
-        }))
-        options?.onToggleOrderedList?.()
-    }, [options])
 
 
     const onQuote = useCallback(() => {

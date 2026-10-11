@@ -4,7 +4,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '../ui/sidebar'
 
 const Layout = () => {
     return (
-        <SidebarProvider defaultOpen={false}>
+        <SidebarProvider className='h-dvh overflow-hidden' defaultOpen={false}>
             <Leftbar />
             <SidebarInset>
                 <Outlet />

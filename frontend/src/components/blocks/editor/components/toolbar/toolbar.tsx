@@ -21,7 +21,7 @@ export const Toolbar = () => {
     const { isCompact, onToggleCompact } = useEditorContext()
 
     return (
-        <div className='flex z-9999 items-center gap-2 fixed bottom-4 justify-center left-1/2 -translate-x-1/2'>
+        <div className='flex z-9999 items-center gap-2 sticky top-4 bottom-4 md:justify-start justify-center'>
             
             <FormatSelect />
             <RichTextButtons />

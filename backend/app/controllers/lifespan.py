@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.shared.cleanup import token_cleanup_service
 from app.shared.logger import get_logger
 from app.shared.database import db
+from app.shared.security import migrate_legacy_totp_secrets
 from app.core.config import settings
 
 logger = get_logger(__name__)
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         await db.connect()
+        await migrate_legacy_totp_secrets(db.users["users"])
         await db.users["users"].create_index("email", unique=True)
         await db.users["users"].create_index(
             [("account_deletion_status", 1), ("account_deletion_lease_until", 1)]

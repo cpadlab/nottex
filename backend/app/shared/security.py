@@ -78,6 +78,66 @@ def hash_one_time_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+_TOTP_CIPHERTEXT_PREFIX = "enc:v1:"
+
+
+def _totp_fernet():
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError as exc:
+        raise RuntimeError("cryptography is required to protect TOTP secrets") from exc
+
+    key = settings.TOTP_ENCRYPTION_KEY
+    if not key:
+        key = base64.urlsafe_b64encode(
+            hashlib.sha256(b"nottex:totp:v1:" + settings.SECRET_KEY.encode("utf-8")).digest()
+        ).decode("ascii")
+    return Fernet(key.encode("ascii"))
+
+
+def encrypt_totp_secret(secret: str) -> str:
+    if secret.startswith(_TOTP_CIPHERTEXT_PREFIX):
+        return secret
+    ciphertext = _totp_fernet().encrypt(secret.encode("utf-8")).decode("ascii")
+    return f"{_TOTP_CIPHERTEXT_PREFIX}{ciphertext}"
+
+
+def decrypt_totp_secret(secret: str) -> str:
+    if not secret.startswith(_TOTP_CIPHERTEXT_PREFIX):
+        return secret
+    from cryptography.fernet import InvalidToken
+
+    try:
+        encrypted_value = secret[len(_TOTP_CIPHERTEXT_PREFIX):].encode("ascii")
+        return _totp_fernet().decrypt(encrypted_value).decode("utf-8")
+    except (InvalidToken, UnicodeDecodeError, ValueError) as exc:
+        raise RuntimeError("Unable to decrypt stored TOTP secret; check TOTP_ENCRYPTION_KEY") from exc
+
+
+async def migrate_legacy_totp_secrets(users_collection) -> int:
+    """Encrypt pre-existing plaintext TOTP seeds before the API becomes ready."""
+    cursor = users_collection.find(
+        {"$or": [{"totp_secret": {"$type": "string"}}, {"pending_totp_secret": {"$type": "string"}}]},
+        {"totp_secret": 1, "pending_totp_secret": 1},
+    )
+    migrated = 0
+    async for user in cursor:
+        updates = {}
+        originals = {}
+        for field in ("totp_secret", "pending_totp_secret"):
+            value = user.get(field)
+            if isinstance(value, str) and not value.startswith(_TOTP_CIPHERTEXT_PREFIX):
+                updates[field] = encrypt_totp_secret(value)
+                originals[field] = value
+        if updates:
+            selector = {"_id": user["_id"], **originals}
+            result = await users_collection.update_one(selector, {"$set": updates})
+            migrated += result.modified_count
+    if migrated:
+        logger.warning("Encrypted legacy plaintext TOTP secrets during startup: %s", migrated)
+    return migrated
+
+
 def _base64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("utf-8")
 

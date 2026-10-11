@@ -41,6 +41,8 @@ from app.shared.logger import get_logger
 from app.shared.security import (
     create_access_token,
     decode_access_token,
+    decrypt_totp_secret,
+    encrypt_totp_secret,
     generate_totp_secret,
     generate_verification_token,
     get_totp_uri,
@@ -774,7 +776,7 @@ class AuthController:
                     message="auth.totp_code_required",
                 )
 
-            if not verify_totp_code(totp_secret, payload.totp_code):
+            if not verify_totp_code(decrypt_totp_secret(totp_secret), payload.totp_code):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="error.invalid_totp_code",
@@ -841,7 +843,7 @@ class AuthController:
             {"_id": user_id},
             {
                 "$set": {
-                    "pending_totp_secret": secret,
+                    "pending_totp_secret": encrypt_totp_secret(secret),
                     "updated_at": now,
                 }
             },
@@ -873,13 +875,14 @@ class AuthController:
                 detail="error.user_not_found",
             )
 
-        pending_secret = user.get("pending_totp_secret")
-        if not pending_secret:
+        pending_secret_encrypted = user.get("pending_totp_secret")
+        if not pending_secret_encrypted:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="error.no_pending_totp_setup",
             )
 
+        pending_secret = decrypt_totp_secret(pending_secret_encrypted)
         if not verify_totp_code(pending_secret, payload.code):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -887,17 +890,19 @@ class AuthController:
             )
 
         now = datetime.now(timezone.utc)
-        await users_collection.update_one(
-            {"_id": user_id},
+        result = await users_collection.update_one(
+            {"_id": user_id, "pending_totp_secret": pending_secret_encrypted},
             {
                 "$set": {
                     "is_totp_enabled": True,
-                    "totp_secret": pending_secret,
+                    "totp_secret": pending_secret_encrypted,
                     "pending_totp_secret": None,
                     "updated_at": now,
                 }
             },
         )
+        if result.matched_count != 1:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.no_pending_totp_setup")
 
         logger.info(f"TOTP 2FA enabled successfully for user {user.get('email')}")
         return TotpStatusResponse(is_enabled=True)
@@ -929,7 +934,9 @@ class AuthController:
         authenticated = False
         if payload.password and verify_password(payload.password, user.get("hashed_password", "")):
             authenticated = True
-        elif payload.code and user.get("totp_secret") and verify_totp_code(user["totp_secret"], payload.code):
+        elif payload.code and user.get("totp_secret") and verify_totp_code(
+            decrypt_totp_secret(user["totp_secret"]), payload.code
+        ):
             authenticated = True
 
         if not authenticated:
@@ -1060,7 +1067,7 @@ class AuthController:
                     detail="error.totp_code_required",
                 )
             totp_secret = user.get("totp_secret")
-            if not totp_secret or not verify_totp_code(totp_secret, payload.totp_code):
+            if not totp_secret or not verify_totp_code(decrypt_totp_secret(totp_secret), payload.totp_code):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="error.invalid_totp_code",
@@ -1144,7 +1151,7 @@ class AuthController:
                     detail="error.totp_code_required",
                 )
             totp_secret = user.get("totp_secret")
-            if not totp_secret or not verify_totp_code(totp_secret, payload.totp_code):
+            if not totp_secret or not verify_totp_code(decrypt_totp_secret(totp_secret), payload.totp_code):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="error.invalid_totp_code",
@@ -1306,7 +1313,7 @@ class AuthController:
                     detail="error.totp_code_required",
                 )
             totp_secret = user.get("totp_secret")
-            if not totp_secret or not verify_totp_code(totp_secret, payload.totp_code):
+            if not totp_secret or not verify_totp_code(decrypt_totp_secret(totp_secret), payload.totp_code):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="error.invalid_totp_code",

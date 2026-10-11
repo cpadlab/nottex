@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
 
     SECRET_KEY: str = ""
+    TOTP_ENCRYPTION_KEY: Optional[str] = None
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 12
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
@@ -63,6 +64,10 @@ class Settings(BaseSettings):
     MAX_NOTE_CONTENT_BYTES: int = 1024 * 1024
     MAX_TAGS_PER_NOTE: int = 50
     MAX_TAG_LENGTH: int = 50
+    SSE_MAX_CONNECTIONS_PER_PROCESS: int = 100
+    SSE_MAX_CONNECTIONS_PER_USER: int = 5
+    SSE_QUEUE_MAX_SIZE: int = 8
+    SSE_MAX_EVENT_BYTES: int = 32768
 
     EMAILS_ENABLED: bool = True
     SMTP_HOST: str = "localhost"
@@ -81,6 +86,21 @@ class Settings(BaseSettings):
             raise ValueError("Request body limit must be positive and at least as large as the note content limit")
         if self.MAX_TAGS_PER_NOTE <= 0 or self.MAX_TAG_LENGTH <= 0 or self.MAX_COLLABORATORS_PER_NOTE <= 0:
             raise ValueError("Note list and collaborator limits must be positive")
+        if (
+            self.SSE_MAX_CONNECTIONS_PER_PROCESS <= 0
+            or self.SSE_MAX_CONNECTIONS_PER_USER <= 0
+            or self.SSE_MAX_CONNECTIONS_PER_USER > self.SSE_MAX_CONNECTIONS_PER_PROCESS
+            or self.SSE_QUEUE_MAX_SIZE <= 0
+            or self.SSE_MAX_EVENT_BYTES <= 0
+        ):
+            raise ValueError("SSE connection, queue, and event limits must be positive and consistent")
+        if self.TOTP_ENCRYPTION_KEY:
+            import base64
+            try:
+                if len(base64.urlsafe_b64decode(self.TOTP_ENCRYPTION_KEY.encode("ascii"))) != 32:
+                    raise ValueError
+            except Exception as exc:
+                raise ValueError("TOTP_ENCRYPTION_KEY must be a valid Fernet key") from exc
 
         if not self.CORS_ALLOW_ORIGINS or "*" in self.CORS_ALLOW_ORIGINS:
             raise ValueError("CORS_ALLOW_ORIGINS must contain explicit origins and cannot contain '*'")
@@ -106,6 +126,8 @@ class Settings(BaseSettings):
                 raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be between 1 and 720 in production")
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
+            if not self.TOTP_ENCRYPTION_KEY:
+                raise ValueError("TOTP_ENCRYPTION_KEY must be set in production (generate with Fernet.generate_key())")
             if any(urlsplit(origin).scheme != "https" for origin in self.CORS_ALLOW_ORIGINS):
                 raise ValueError("Production CORS origins must use HTTPS")
             if "localhost" in self.FRONTEND_URL or "127.0.0.1" in self.FRONTEND_URL:

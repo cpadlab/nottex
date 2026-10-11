@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+    <meta charset="utf-8">
+    <title>Verifica tu correo electrónico</title>
+
+</head>
+<body>
+  
+    <h1>Verifica tu cuenta en {{ app_name }}</h1>
+    <p>Hola {{ first_name }},</p>
+    <p>Gracias por registrarte en {{ app_name }}. Para verificar tu correo electrónico y activar tu cuenta, haz clic en el siguiente botón o enlace:</p>
+    
+    <p>
+        <a href="{{ verification_url }}">
+            <button type="button">Verificar correo electrónico</button>
+        </a>
+    </p>
+
+    <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+    <p><a href="{{ verification_url }}">{{ verification_url }}</a></p>
+    <p>Tu código/token de verificación es: <strong>{{ token }}</strong></p>
+    <p>Este enlace expirará en 24 horas.</p>
+    
+</body>
+</html>
+

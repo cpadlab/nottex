@@ -5,6 +5,12 @@ export interface UseNoteOptions {
     path?: string
     initialTitle?: string
     initialContent?: string
+    isPinned?: boolean
+    onTogglePin?: () => void
+    onCreateCopy?: () => void
+    onSearchInText?: () => void
+    onBackgroundOptions?: () => void
+    onTags?: () => void
     onIdChange?: (id?: string) => void
     onPathChange?: (path: string) => void
     onTitleChange?: (title: string) => void
@@ -17,6 +23,28 @@ export const useNote = (options?: UseNoteOptions) => {
     const [path, setPathState] = useState<string>(options?.path ?? '/')
     const [title, setTitleState] = useState(options?.initialTitle ?? '')
     const [content, setContentState] = useState(options?.initialContent ?? '')
+    const [isPinned, setIsPinned] = useState<boolean>(options?.isPinned ?? false)
+
+    const onTogglePin = useCallback(() => {
+        setIsPinned((prev) => !prev)
+        options?.onTogglePin?.()
+    }, [options])
+
+    const onCreateCopy = useCallback(() => {
+        options?.onCreateCopy?.()
+    }, [options])
+
+    const onSearchInText = useCallback(() => {
+        options?.onSearchInText?.()
+    }, [options])
+
+    const onBackgroundOptions = useCallback(() => {
+        options?.onBackgroundOptions?.()
+    }, [options])
+
+    const onTags = useCallback(() => {
+        options?.onTags?.()
+    }, [options])
 
     const setId = useCallback(
         (newId: string | undefined | ((prev: string | undefined) => string | undefined)) => {
@@ -80,6 +108,12 @@ export const useNote = (options?: UseNoteOptions) => {
         setTitle,
         content,
         setContent,
+        isPinned,
+        onTogglePin,
+        onCreateCopy,
+        onSearchInText,
+        onBackgroundOptions,
+        onTags,
     }
 }
 

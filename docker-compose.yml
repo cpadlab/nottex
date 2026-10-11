@@ -1,4 +1,45 @@
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nottex-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HTTP_PORT:-80}:80"
+      - "${FRONTEND_HTTPS_PORT:-443}:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - nottex-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nottex-backend
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-password123}@mongodb:27017/?authSource=admin
+      - SECRET_KEY=${SECRET_KEY:-change-this-ultra-secure-key-in-production-random-64-characters}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - EMAILS_ENABLED=${EMAILS_ENABLED:-true}
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-noreply@nottex.com}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Nottex}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - nottex-network
+
   mongodb:
     image: mongo:latest
     container_name: nottex-mongodb
@@ -16,6 +57,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - nottex-network
 
   mailpit:
     image: axllent/mailpit:latest
@@ -26,6 +69,12 @@ services:
       - "${MAILPIT_UI_PORT:-8025}:8025"
     environment:
       MP_MAX_MESSAGES: 500
+    networks:
+      - nottex-network
+
+networks:
+  nottex-network:
+    driver: bridge
 
 volumes:
   mongodb_data:

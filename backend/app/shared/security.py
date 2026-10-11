@@ -71,6 +71,13 @@ def generate_verification_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def hash_one_time_token(token: str) -> str:
+    """
+    Return a one-way digest suitable for storing high-entropy one-time tokens.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def _base64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("utf-8")
 

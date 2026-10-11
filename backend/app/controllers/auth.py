@@ -43,6 +43,7 @@ from app.shared.security import (
     generate_totp_secret,
     generate_verification_token,
     get_totp_uri,
+    hash_one_time_token,
     hash_password,
     verify_password,
     verify_totp_code,
@@ -310,7 +311,7 @@ class AuthController:
             "hashed_password": hashed_pwd,
             "token_version": 0,
             "is_verified": False,
-            "verification_token": token,
+            "verification_token": hash_one_time_token(token),
             "verification_token_expires_at": token_expires_at,
             "verification_email_sent_at": now,
             "last_login": None,
@@ -371,7 +372,8 @@ class AuthController:
 
         users_collection = db.users["users"]
 
-        user = await users_collection.find_one({"verification_token": payload.token})
+        token_hash = hash_one_time_token(payload.token)
+        user = await users_collection.find_one({"verification_token": token_hash})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -385,18 +387,21 @@ class AuthController:
             )
 
         expires_at = user.get("verification_token_expires_at")
-        if expires_at:
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expires_at:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="error.token_expired",
-                )
-
+        if not expires_at:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
-        await users_collection.update_one(
-            {"_id": user["_id"]},
+        if now > expires_at:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.token_expired")
+
+        result = await users_collection.update_one(
+            {
+                "_id": user["_id"],
+                "verification_token": token_hash,
+                "verification_token_expires_at": {"$gt": now},
+                "is_verified": {"$ne": True},
+            },
             {
                 "$set": {
                     "is_verified": True,
@@ -406,6 +411,8 @@ class AuthController:
                 }
             },
         )
+        if result.matched_count != 1:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
 
         logger.info(f"User email verified successfully: {user.get('email')}")
         return VerifyEmailResponse(
@@ -448,7 +455,7 @@ class AuthController:
             {"_id": user["_id"]},
             {
                 "$set": {
-                    "verification_token": token,
+                    "verification_token": hash_one_time_token(token),
                     "verification_token_expires_at": token_expires_at,
                     "verification_email_sent_at": now,
                     "updated_at": now,
@@ -605,7 +612,7 @@ class AuthController:
             {"_id": user["_id"]},
             {
                 "$set": {
-                    "password_reset_token": token,
+                    "password_reset_token": hash_one_time_token(token),
                     "password_reset_token_expires_at": token_expires_at,
                     "password_reset_sent_at": now,
                     "updated_at": now,
@@ -645,7 +652,8 @@ class AuthController:
             )
 
         users_collection = db.users["users"]
-        user = await users_collection.find_one({"password_reset_token": payload.token})
+        token_hash = hash_one_time_token(payload.token)
+        user = await users_collection.find_one({"password_reset_token": token_hash})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -672,7 +680,7 @@ class AuthController:
         result = await users_collection.update_one(
             {
                 "_id": user["_id"],
-                "password_reset_token": payload.token,
+                "password_reset_token": token_hash,
                 "password_reset_token_expires_at": {"$gt": now},
             },
             {
@@ -1151,7 +1159,7 @@ class AuthController:
                     "$set": {
                         "email": payload.new_email,
                         "is_verified": False,
-                        "verification_token": verification_token,
+                        "verification_token": hash_one_time_token(verification_token),
                         "verification_token_expires_at": verification_expires_at,
                         "updated_at": now,
                     },
@@ -1302,7 +1310,7 @@ class AuthController:
             {"_id": user_id},
             {
                 "$set": {
-                    "delete_account_token": token,
+                    "delete_account_token": hash_one_time_token(token),
                     "delete_account_token_expires_at": token_expires_at,
                     "updated_at": now,
                 }
@@ -1343,7 +1351,8 @@ class AuthController:
             )
 
         users_collection = db.users["users"]
-        user = await users_collection.find_one({"delete_account_token": payload.token})
+        token_hash = hash_one_time_token(payload.token)
+        user = await users_collection.find_one({"delete_account_token": token_hash})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1351,14 +1360,26 @@ class AuthController:
             )
 
         expires_at = user.get("delete_account_token_expires_at")
-        if expires_at:
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expires_at:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="error.token_expired",
-                )
+        if not expires_at:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if now > expires_at:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.token_expired")
+
+        # Claim and consume the token atomically before starting the deletion cascade.
+        user = await users_collection.find_one_and_update(
+            {
+                "_id": user["_id"],
+                "delete_account_token": token_hash,
+                "delete_account_token_expires_at": {"$gt": now},
+            },
+            {"$set": {"delete_account_token": None, "delete_account_token_expires_at": None}},
+            return_document=False,
+        )
+        if not user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
 
         user_id = user["_id"]
         email = user["email"]

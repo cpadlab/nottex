@@ -1,6 +1,9 @@
 import { api } from "@/lib/api";
 import type {
     AuthResponse,
+    ChangeEmailRequest,
+    ChangeLanguageRequest,
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     LoginRequest,
@@ -13,7 +16,9 @@ import type {
     TotpSetupResponse,
     TotpStatusResponse,
     TotpVerifyRequest,
+    UpdateProfileRequest,
     User,
+    UserActionResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
 } from "@/types/auth";
@@ -60,6 +65,26 @@ export const authService = {
         return response.data;
     },
 
+    async updateProfile(data: UpdateProfileRequest): Promise<UserActionResponse> {
+        const response = await api.put<UserActionResponse>("/auth/profile", data);
+        return response.data;
+    },
+
+    async changePassword(data: ChangePasswordRequest): Promise<UserActionResponse> {
+        const response = await api.put<UserActionResponse>("/auth/password", data);
+        return response.data;
+    },
+
+    async changeEmail(data: ChangeEmailRequest): Promise<UserActionResponse> {
+        const response = await api.put<UserActionResponse>("/auth/email", data);
+        return response.data;
+    },
+
+    async changeLanguage(data: ChangeLanguageRequest): Promise<UserActionResponse> {
+        const response = await api.put<UserActionResponse>("/auth/language", data);
+        return response.data;
+    },
+
     async getTotpStatus(): Promise<TotpStatusResponse> {
         const response = await api.get<TotpStatusResponse>("/auth/totp/status");
         return response.data;
@@ -84,5 +109,6 @@ export const authService = {
         localStorage.removeItem("access_token");
     },
 };
+
 
 export default authService;

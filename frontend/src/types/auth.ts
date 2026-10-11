@@ -84,3 +84,30 @@ export interface TotpDisableRequest {
 export interface TotpStatusResponse {
     is_enabled: boolean;
 }
+
+export interface UpdateProfileRequest {
+    first_name: string;
+    last_name: string;
+}
+
+export interface ChangePasswordRequest {
+    current_password: string;
+    new_password: string;
+    totp_code?: string;
+}
+
+export interface ChangeEmailRequest {
+    new_email: string;
+    password: string;
+    totp_code?: string;
+}
+
+export interface ChangeLanguageRequest {
+    language: string;
+}
+
+export interface UserActionResponse {
+    message: string;
+    user?: User;
+}
+

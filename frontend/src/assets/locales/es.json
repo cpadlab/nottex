@@ -2,10 +2,17 @@
     "title": "Nottex",
     "layout": {
         "sidebar": {
-            "workspace": "Workspace",
+            "workspace": "Espacio de trabajo",
             "notes": "Notas",
             "workspaces": "Espacios",
-            "pinned": "Fijadas"
+            "pinned": "Fijadas",
+            "shared": "Compartidas",
+            "trash_group": "Papelera",
+            "trash": "Papelera",
+            "settings_group": "Configuración",
+            "settings": "Ajustes",
+            "changelog": "Registro de cambios",
+            "github": "Repositorio GitHub"
         }
     },
     "note": {

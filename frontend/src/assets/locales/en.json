@@ -5,7 +5,14 @@
             "workspace": "Workspace",
             "notes": "Notes",
             "workspaces": "Workspaces",
-            "pinned": "Pinned"
+            "pinned": "Pinned",
+            "shared": "Shared",
+            "trash_group": "Trash",
+            "trash": "Trash",
+            "settings_group": "Settings",
+            "settings": "Settings",
+            "changelog": "Changelog",
+            "github": "GitHub Repository"
         }
     },
     "note": {

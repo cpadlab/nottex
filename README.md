@@ -22,6 +22,19 @@ only to the `users` and `notes` databases. The application connects as that user
 the root account is reserved for MongoDB initialization and its health check.
 Neither MongoDB nor Mailpit publishes a host port in this stack.
 
+API rate limits use atomic MongoDB token buckets, so they apply across backend
+replicas. Defaults include 20 login attempts per IP per minute, 10 attempts per
+email per 15 minutes, 5 registrations per IP per hour, 3 verification or reset
+emails per address per hour, and 8 TOTP operations per account per minute.
+Authenticated requests are limited to 180 per user and 300 per IP per minute;
+creation limits are 60 notes, 20 workspaces, and 30 share changes per hour per
+user. A note can have at most 50 collaborators. Expired rate-limit records are
+removed by a MongoDB TTL index.
+
+If another load balancer or CDN sits in front of Nginx, configure Nginx's real
+IP module for only that provider's trusted proxy ranges. Do not trust arbitrary
+client-supplied `X-Forwarded-For` values.
+
 ### Existing MongoDB volume
 
 MongoDB's initialization scripts run only when its data directory is empty. An

@@ -335,6 +335,10 @@ class NoteController:
                 {"id": note_id},
                 {"$set": {"collaborators": new_collabs, "updated_at": now}},
             )
+            await note_broadcaster.publish(note_id, {
+                "type": "access_changed",
+                "note_id": note_id,
+            })
 
             await user_broadcaster.publish(user_id, {
                 "type": "note_left",
@@ -366,6 +370,10 @@ class NoteController:
             {"id": note_id},
             {"$set": {"is_trashed": True, "trashed_at": now, "updated_at": now}},
         )
+        await note_broadcaster.publish(note_id, {
+            "type": "access_changed",
+            "note_id": note_id,
+        })
         await user_broadcaster.publish(user_id, {
             "type": "note_trashed",
             "note_id": note_id,
@@ -589,12 +597,18 @@ class NoteController:
             )
 
         now = datetime.now(timezone.utc)
-        collaborators = [c for c in note.get("collaborators", []) if c.get("email") != payload.email]
+        existing_collaborators = note.get("collaborators", [])
+        collaborators = [c for c in existing_collaborators if c.get("email") != payload.email]
 
         await notes_col.update_one(
             {"id": note_id},
             {"$set": {"collaborators": collaborators, "updated_at": now}},
         )
+        if len(collaborators) != len(existing_collaborators):
+            await note_broadcaster.publish(note_id, {
+                "type": "access_changed",
+                "note_id": note_id,
+            })
 
         updated_doc = await notes_col.find_one({"id": note_id})
         return NoteController._doc_to_response(updated_doc)
@@ -743,6 +757,8 @@ class NoteController:
                 current_doc = await notes_col.find_one({"id": note_id})
                 if not current_doc or not NoteController._can_read(current_doc, user_id):
                     break
+                if event.get("type") == "access_changed":
+                    continue
                 yield f"data: {json.dumps(event)}\n\n"
         finally:
             await note_broadcaster.unsubscribe(note_id, queue)

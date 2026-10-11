@@ -72,5 +72,26 @@
             "collapse": "Modo compacto",
             "expand": "Modo expandido"
         }
+    },
+    "error": {
+        "unauthorized": "No autorizado. Inicie sesión para continuar.",
+        "token_invalid_or_expired": "La sesión ha expirado o el token es inválido.",
+        "database_unavailable": "Servicio de base de datos no disponible.",
+        "email_already_registered": "El correo electrónico ya se encuentra registrado.",
+        "invalid_or_used_token": "El token de verificación es inválido o ya ha sido utilizado.",
+        "token_expired": "El token de verificación ha caducado. Por favor solicita uno nuevo.",
+        "user_not_found": "No se encontró ningún usuario registrado con ese correo.",
+        "email_already_verified": "El correo electrónico ya ha sido verificado.",
+        "resend_cooldown_active": "Debes esperar 15 minutos entre solicitudes de correo.",
+        "password_too_short": "La contraseña debe tener al menos 8 caracteres.",
+        "password_no_uppercase": "La contraseña debe contener al menos una letra mayúscula.",
+        "password_no_lowercase": "La contraseña debe contener al menos una letra minúscula.",
+        "password_no_special_or_digit": "La contraseña debe contener al menos un número o símbolo especial."
+    },
+    "auth": {
+        "register_success": "Registro completado con éxito. Se ha enviado un correo para verificar tu cuenta.",
+        "email_verified_success": "Correo electrónico verificado con éxito.",
+        "email_already_verified": "El correo electrónico ya ha sido verificado previamente.",
+        "verification_email_sent": "Se ha enviado un nuevo correo de verificación."
     }
 }

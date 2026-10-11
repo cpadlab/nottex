@@ -72,5 +72,26 @@
             "collapse": "Compact mode",
             "expand": "Expanded mode"
         }
+    },
+    "error": {
+        "unauthorized": "Unauthorized. Please log in to continue.",
+        "token_invalid_or_expired": "Session has expired or token is invalid.",
+        "database_unavailable": "Database service unavailable.",
+        "email_already_registered": "Email is already registered.",
+        "invalid_or_used_token": "The verification token is invalid or has already been used.",
+        "token_expired": "The verification token has expired. Please request a new one.",
+        "user_not_found": "No user found with that email address.",
+        "email_already_verified": "Email address is already verified.",
+        "resend_cooldown_active": "You must wait 15 minutes between email requests.",
+        "password_too_short": "Password must be at least 8 characters long.",
+        "password_no_uppercase": "Password must contain at least one uppercase letter.",
+        "password_no_lowercase": "Password must contain at least one lowercase letter.",
+        "password_no_special_or_digit": "Password must contain at least one number or special character."
+    },
+    "auth": {
+        "register_success": "Registration successful. A verification email has been sent.",
+        "email_verified_success": "Email address verified successfully.",
+        "email_already_verified": "Email address was already verified.",
+        "verification_email_sent": "A new verification email has been sent."
     }
 }

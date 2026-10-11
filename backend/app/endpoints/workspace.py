@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.controllers.auth import AuthController
@@ -12,23 +12,30 @@ from app.schemas.workspace import (
     WorkspaceResponse,
     WorkspaceUpdate,
 )
+from app.shared.rate_limit import limit_account, limit_authenticated_request, limit_ip
 
 router = APIRouter(prefix="/workspaces", tags=["Workspaces"])
 security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user_dep(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> UserResponse:
     token = credentials.credentials if credentials else None
-    return await AuthController.get_current_user(token)
+    user = await AuthController.get_current_user(token)
+    await limit_authenticated_request(request, user.id)
+    return user
 
 
 @router.post("", response_model=WorkspaceResponse, status_code=status.HTTP_201_CREATED)
 async def create_workspace(
     payload: WorkspaceCreate,
+    request: Request,
     current_user: UserResponse = Depends(get_current_user_dep),
 ):
+    await limit_ip(request, "create_workspace", limit=20, window_seconds=3600)
+    await limit_account("create_workspace", current_user.id, limit=20, window_seconds=3600)
     return await WorkspaceController.create_workspace(current_user.id, payload)
 
 

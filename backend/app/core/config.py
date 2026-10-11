@@ -31,9 +31,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
-    RESEND_VERIFICATION_COOLDOWN_MINUTES: int = 15
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60
-    PASSWORD_RESET_COOLDOWN_MINUTES: int = 15
     TOKEN_CLEANUP_INTERVAL_MINUTES: int = 60
     TRASH_RETENTION_DAYS: int = 30
     UNVERIFIED_USER_RETENTION_DAYS: int = 7
@@ -58,6 +56,8 @@ class Settings(BaseSettings):
     DATABASE_MIN_POOL_SIZE: int = 10
     DATABASE_MAX_IDLE_TIME_MS: int = 30000
     DATABASE_WAIT_QUEUE_TIMEOUT_MS: int = 5000
+
+    MAX_COLLABORATORS_PER_NOTE: int = 50
 
     # Email / SMTP (Mailpit in development, SMTP / Email API provider in production)
     EMAILS_ENABLED: bool = True

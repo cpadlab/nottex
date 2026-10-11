@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -16,34 +16,44 @@ from app.schemas.note import (
     WorkspaceWithNotesResponse,
 )
 from app.schemas.user import UserResponse
+from app.shared.rate_limit import limit_account, limit_authenticated_request, limit_ip
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 security = HTTPBearer(auto_error=False)
 
 
 async def get_optional_user_dep(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Optional[UserResponse]:
     if not credentials:
         return None
     try:
-        return await AuthController.get_current_user(credentials.credentials)
+        user = await AuthController.get_current_user(credentials.credentials)
     except Exception:
         return None
+    await limit_authenticated_request(request, user.id)
+    return user
 
 
 async def get_required_user_dep(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> UserResponse:
     token = credentials.credentials if credentials else None
-    return await AuthController.get_current_user(token)
+    user = await AuthController.get_current_user(token)
+    await limit_authenticated_request(request, user.id)
+    return user
 
 
 @router.post("", response_model=NoteResponse, status_code=status.HTTP_201_CREATED)
 async def create_note(
     payload: NoteCreate,
+    request: Request,
     current_user: UserResponse = Depends(get_required_user_dep),
 ):
+    await limit_ip(request, "create_note", limit=60, window_seconds=3600)
+    await limit_account("create_note", current_user.id, limit=60, window_seconds=3600)
     return await NoteController.create_note(current_user.id, payload)
 
 
@@ -76,6 +86,7 @@ async def list_notes(
 
 @router.get("/events/user")
 async def user_events(
+    request: Request,
     token: Optional[str] = Query(None, description="Access token via query param for EventSource support"),
     user: Optional[UserResponse] = Depends(get_optional_user_dep),
 ):
@@ -83,6 +94,7 @@ async def user_events(
     Global Server-Sent Events (SSE) endpoint to receive realtime updates across all devices
     when a note is created, trashed, restored, deleted or shared.
     """
+    await limit_ip(request, "sse_connection", limit=20, window_seconds=60)
     user_id = user.id if user else None
     if not user_id and token:
         try:
@@ -93,6 +105,8 @@ async def user_events(
 
     if not user_id:
         return StreamingResponse(iter([]), media_type="text/event-stream")
+
+    await limit_account("sse_connection", user_id, limit=20, window_seconds=60)
 
     generator = NoteController.subscribe_user_events(user_id)
     return StreamingResponse(generator, media_type="text/event-stream")
@@ -108,8 +122,10 @@ async def list_workspaces_with_notes(
 @router.get("/{note_id}", response_model=NoteResponse)
 async def get_note(
     note_id: str,
+    request: Request,
     user: Optional[UserResponse] = Depends(get_optional_user_dep),
 ):
+    await limit_ip(request, "public_note_read", limit=120, window_seconds=60)
     user_id = user.id if user else None
     return await NoteController.get_note(note_id, user_id)
 
@@ -152,8 +168,11 @@ async def restore_note(
 async def duplicate_note(
     note_id: str,
     payload: NoteDuplicateRequest,
+    request: Request,
     current_user: UserResponse = Depends(get_required_user_dep),
 ):
+    await limit_ip(request, "create_note", limit=60, window_seconds=3600)
+    await limit_account("create_note", current_user.id, limit=60, window_seconds=3600)
     return await NoteController.duplicate_note(note_id, current_user.id, payload)
 
 
@@ -161,8 +180,11 @@ async def duplicate_note(
 async def share_note(
     note_id: str,
     payload: NoteShareRequest,
+    request: Request,
     current_user: UserResponse = Depends(get_required_user_dep),
 ):
+    await limit_ip(request, "note_sharing", limit=30, window_seconds=3600)
+    await limit_account("note_sharing", current_user.id, limit=30, window_seconds=3600)
     return await NoteController.share_note(note_id, current_user.id, payload)
 
 
@@ -170,14 +192,18 @@ async def share_note(
 async def unshare_note(
     note_id: str,
     payload: NoteUnshareRequest,
+    request: Request,
     current_user: UserResponse = Depends(get_required_user_dep),
 ):
+    await limit_ip(request, "note_sharing", limit=30, window_seconds=3600)
+    await limit_account("note_sharing", current_user.id, limit=30, window_seconds=3600)
     return await NoteController.unshare_note(note_id, current_user.id, payload)
 
 
 @router.get("/{note_id}/events")
 async def note_events(
     note_id: str,
+    request: Request,
     token: Optional[str] = Query(None, description="Access token via query param for EventSource support"),
     user: Optional[UserResponse] = Depends(get_optional_user_dep),
 ):
@@ -185,6 +211,7 @@ async def note_events(
     Server-Sent Events (SSE) endpoint to receive realtime updates when a note is edited
     from another device or by another collaborator.
     """
+    await limit_ip(request, "sse_connection", limit=20, window_seconds=60)
     user_id = user.id if user else None
     if not user_id and token:
         try:
@@ -192,6 +219,9 @@ async def note_events(
             user_id = usr.id
         except Exception:
             pass
+
+    if user_id:
+        await limit_account("sse_connection", user_id, limit=20, window_seconds=60)
 
     generator = NoteController.subscribe_events(note_id, user_id)
     return StreamingResponse(generator, media_type="text/event-stream")

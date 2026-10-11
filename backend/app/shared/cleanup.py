@@ -67,18 +67,53 @@ class TokenCleanupService:
             },
         )
 
+        from datetime import timedelta
+
+        unverified_threshold = now - timedelta(days=settings.UNVERIFIED_USER_RETENTION_DAYS)
+        unverified_users_cursor = users_col.find(
+            {
+                "is_verified": False,
+                "created_at": {"$lt": unverified_threshold},
+            },
+            {"_id": 1, "email": 1},
+        )
+        unverified_ids = [doc["_id"] async for doc in unverified_users_cursor]
+        unverified_deleted_count = 0
+        if unverified_ids:
+            workspaces_col = db.notes["workspaces"]
+            notes_col = db.notes["notes"]
+            await workspaces_col.delete_many({"user_id": {"$in": unverified_ids}})
+            await notes_col.delete_many({"user_id": {"$in": unverified_ids}})
+            await notes_col.update_many(
+                {"collaborators.user_id": {"$in": unverified_ids}},
+                {"$pull": {"collaborators": {"user_id": {"$in": unverified_ids}}}},
+            )
+            unverif_res = await users_col.delete_many({"_id": {"$in": unverified_ids}})
+            unverified_deleted_count = unverif_res.deleted_count
+
+        trash_threshold = now - timedelta(days=settings.TRASH_RETENTION_DAYS)
+        notes_col = db.notes["notes"]
+        trash_res = await notes_col.delete_many({
+            "is_trashed": True,
+            "trashed_at": {"$lt": trash_threshold},
+        })
+
         cleaned_total = (
             verif_result.modified_count
             + reset_result.modified_count
             + delete_result.modified_count
+            + unverified_deleted_count
+            + trash_res.deleted_count
         )
 
         if cleaned_total > 0:
             logger.info(
-                f"Token cleanup finished: {cleaned_total} expired tokens cleared "
+                f"Token & data cleanup finished: {cleaned_total} items cleared "
                 f"(verification={verif_result.modified_count}, "
                 f"reset={reset_result.modified_count}, "
-                f"delete_account={delete_result.modified_count})."
+                f"delete_account={delete_result.modified_count}, "
+                f"unverified_users={unverified_deleted_count}, "
+                f"trash_notes={trash_res.deleted_count})."
             )
 
         return {
@@ -87,6 +122,8 @@ class TokenCleanupService:
             "verification_cleaned": verif_result.modified_count,
             "password_reset_cleaned": reset_result.modified_count,
             "delete_account_cleaned": delete_result.modified_count,
+            "unverified_users_purged": unverified_deleted_count,
+            "trash_notes_purged": trash_res.deleted_count,
         }
 
     async def _cleanup_loop(self) -> None:

@@ -45,7 +45,6 @@ export interface UseEditorOptions extends EditorActiveState {
     onSetHighlight?: (color?: string) => void
     onInsertLink?: (url?: string) => void
     onInsertImage?: (src?: string) => void
-    onInsertVideo?: (src?: string) => void
     onToggleBold?: () => void
     onToggleItalic?: () => void
     onToggleUnderline?: () => void
@@ -787,7 +786,7 @@ export const useEditor = (options?: UseEditorOptions) => {
 
         if (targetBlock && targetBlock !== editor) {
             const isTargetEmpty = targetBlock.textContent?.trim() === ""
-            if (isTargetEmpty && !targetBlock.querySelector("img, video")) {
+            if (isTargetEmpty && !targetBlock.querySelector("img")) {
                 targetBlock.replaceWith(codeContainer)
                 codeContainer.after(nextP)
             } else {
@@ -938,10 +937,6 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onInsertImage?.(src)
     }, [options])
 
-    const onVideo = useCallback((src?: string) => {
-        options?.onInsertVideo?.(src)
-    }, [options])
-
 
     return {
         editorRef,
@@ -994,7 +989,6 @@ export const useEditor = (options?: UseEditorOptions) => {
         onPaintRoller,
         onLink,
         onImage,
-        onVideo,
         onBold,
         onItalic,
         onUnderline,

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ImageIcon, LinkIcon, VideoIcon, type LucideIcon } from 'lucide-react'
+import { ImageIcon, LinkIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useEditorContext } from '@/contexts/editor-context'
 
@@ -14,7 +14,7 @@ export interface FormatButton {
 export const MediaButtons = () => {
 
     const { t: translation } = useTranslation()
-    const { onLink, onImage, onVideo } = useEditorContext()
+    const { onLink, onImage } = useEditorContext()
 
     const buttons: FormatButton[] = [
         { 
@@ -26,11 +26,6 @@ export const MediaButtons = () => {
             icon: ImageIcon, 
             label: "editor.toolbar.image",
             onClick: () => onImage(),
-        },
-        { 
-            icon: VideoIcon, 
-            label: "editor.toolbar.video",
-            onClick: () => onVideo(),
         },
     ]
 

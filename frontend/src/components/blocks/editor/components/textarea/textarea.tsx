@@ -81,10 +81,36 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         }
     }, [syncCheckboxContainers, syncCodeBlockContainers, editorRef])
 
+    const handleClick = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            if (e.target === editorRef.current && editorRef.current) {
+                const lastChild = editorRef.current.lastElementChild
+                if (
+                    lastChild &&
+                    (lastChild.tagName.toLowerCase() === 'blockquote' ||
+                        lastChild.getAttribute('data-type') === 'code-block')
+                ) {
+                    const p = document.createElement('p')
+                    p.innerHTML = '<br>'
+                    editorRef.current.appendChild(p)
+                    const range = document.createRange()
+                    range.selectNodeContents(p)
+                    range.collapse(false)
+                    const sel = window.getSelection()
+                    sel?.removeAllRanges()
+                    sel?.addRange(range)
+                    handleInput()
+                }
+            }
+            handleSelectionChange()
+        },
+        [editorRef, handleInput, handleSelectionChange]
+    )
+
     return (
         <>
         
-            <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder={placeholder ?? defaultPlaceholder} onInput={handleInput} onKeyDown={handleKeyDown} onKeyUp={handleSelectionChange} onMouseUp={handleSelectionChange}
+            <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder={placeholder ?? defaultPlaceholder} onInput={handleInput} onKeyDown={handleKeyDown} onKeyUp={handleSelectionChange} onMouseUp={handleSelectionChange} onClick={handleClick}
                 className={cn(
                     "w-full scroll-fade flex-1 min-w-full min-h-0 overflow-y-auto outline-none resize-none scrollbar-none",
                     "[&_p]:text-base [&_p]:leading-relaxed [&_p]:my-1.5",

@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectTrigger, SelectItem, SelectSeparator } from '@/components/ui/select'
-import { AlignLeftIcon, AlignRightIcon, BaselineIcon, CodeXmlIcon, EllipsisIcon, ImageIcon, LinkIcon, PaintRollerIcon, QuoteIcon, SubscriptIcon, SuperscriptIcon, TextAlignCenterIcon, TextAlignJustifyIcon, VideoIcon, type LucideIcon } from 'lucide-react'
+import { AlignLeftIcon, AlignRightIcon, BaselineIcon, CodeXmlIcon, EllipsisIcon, ImageIcon, LinkIcon, PaintRollerIcon, QuoteIcon, SubscriptIcon, SuperscriptIcon, TextAlignCenterIcon, TextAlignJustifyIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Fragment } from 'react/jsx-runtime'
 import { useEditorContext } from '@/contexts/editor-context'
@@ -42,7 +42,6 @@ export const MobileSelect = () => {
         onPaintRoller,
         onLink,
         onImage,
-        onVideo,
         isCompact,
     } = useEditorContext()
 
@@ -60,12 +59,6 @@ export const MobileSelect = () => {
             label: "editor.toolbar.image",
             value: "image",
             onClick: () => onImage(),
-        },
-        { 
-            icon: VideoIcon, 
-            label: "editor.toolbar.video",
-            value: "video",
-            onClick: () => onVideo(),
         },
         { 
             icon: QuoteIcon, 

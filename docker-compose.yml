@@ -8,6 +8,9 @@ services:
     ports:
       - "${FRONTEND_HTTP_PORT:-80}:80"
       - "${FRONTEND_HTTPS_PORT:-443}:443"
+    volumes:
+      - "${TLS_CERTIFICATE_PATH:?Set TLS_CERTIFICATE_PATH to the full-chain certificate file}:/etc/nginx/certs/fullchain.pem:ro"
+      - "${TLS_PRIVATE_KEY_PATH:?Set TLS_PRIVATE_KEY_PATH to the private key file}:/etc/nginx/certs/privkey.pem:ro"
     depends_on:
       backend:
         condition: service_healthy

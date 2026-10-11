@@ -17,11 +17,12 @@ RUN rm -rf /usr/share/nginx/html/* /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 COPY nginx.conf /etc/nginx/conf.d/nottex.conf
+COPY security-headers.conf /etc/nginx/snippets/nottex-security-headers.conf
 
 EXPOSE 80 443
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- http://localhost:80/ || exit 1
+    CMD nginx -t || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
 

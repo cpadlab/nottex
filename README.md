@@ -21,7 +21,21 @@ a real SMTP provider before starting the application.
    frontend is hosted on a separate domain; wildcards are rejected. CORS only
    allows the API methods and headers used by the application and exposes
    `Retry-After` for rate-limit responses.
-4. Start the stack with `docker compose up -d --build`.
+4. Provision a valid certificate and private key for the public hostname, then
+   set `TLS_CERTIFICATE_PATH` and `TLS_PRIVATE_KEY_PATH` to their absolute host
+   paths. The certificate file must contain the full chain. Compose mounts both
+   files read-only; renew the files and recreate/restart the frontend container
+   after renewal so Nginx reloads them. Do not expose this stack publicly before
+   TLS works with the hostname browsers will use.
+5. Start the stack with `docker compose up -d --build`.
+
+Nginx redirects HTTP to HTTPS and serves the frontend and API over TLS 1.2/1.3.
+The HTTPS responses include HSTS (`max-age=31536000`), CSP, `nosniff`, click
+protection, a referrer policy, and a restrictive permissions policy. The CSP
+allows inline styles because the current UI uses React style properties; script
+execution remains limited to same-origin assets. Certificates are supplied by
+the operator (for example, from an ACME client); this repository does not issue
+or renew certificates itself.
 
 The MongoDB initialization script creates `nottex_app` with `readWrite` access
 only to the `users` and `notes` databases. The application connects as that user;

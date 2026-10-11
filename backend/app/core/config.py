@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
     RESEND_VERIFICATION_COOLDOWN_MINUTES: int = 15
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
+    PASSWORD_RESET_COOLDOWN_MINUTES: int = 15  # 15 minutes between reset requests
 
     CORS_ALLOW_ORIGINS: List[str] = [
         "http://localhost:5173",

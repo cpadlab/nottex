@@ -76,3 +76,41 @@ class ResendVerificationRequest(BaseModel):
 class ResendVerificationResponse(BaseModel):
     message: str = "auth.verification_email_sent"
 
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str = "auth.forgot_password_email_sent"
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10)
+    new_password: str = Field(min_length=8, max_length=128, description="Nueva contraseña segura")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("error.password_too_short")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("error.password_no_uppercase")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("error.password_no_lowercase")
+        if not re.search(r"[0-9\W_]", v):
+            raise ValueError("error.password_no_special_or_digit")
+        return v
+
+
+class ResetPasswordResponse(BaseModel):
+    message: str = "auth.password_reset_success"
+
+

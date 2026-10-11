@@ -25,6 +25,13 @@
     },
     "editor": {
         "placeholder": "Empiece a escribir su nota aquí...",
+        "code": {
+            "title": "Código",
+            "placeholder": "// Escribe tu código aquí...",
+            "delete": "Eliminar bloque de código",
+            "copy": "Copiar código",
+            "copied": "Copiado"
+        },
         "toolbar": {
             "normal": "Normal",
             "heading": "Título",

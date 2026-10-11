@@ -172,12 +172,18 @@ export const useEditor = (options?: UseEditorOptions) => {
             }
 
             let detectedCodeXml = false
+            let detectedQuote = false
             let checkNode: Node | null = selection.anchorNode
             while (checkNode && checkNode !== editorRef.current) {
                 if (checkNode.nodeType === Node.ELEMENT_NODE) {
                     const el = checkNode as HTMLElement
                     if (el.getAttribute("data-type") === "code-block") {
                         detectedCodeXml = true
+                    }
+                    if (el.tagName.toLowerCase() === "blockquote") {
+                        detectedQuote = true
+                    }
+                    if (detectedCodeXml && detectedQuote) {
                         break
                     }
                 }
@@ -197,7 +203,8 @@ export const useEditor = (options?: UseEditorOptions) => {
                     prev.isList === detectedList &&
                     prev.isListOrdered === detectedListOrdered &&
                     prev.isListTodo === detectedListTodo &&
-                    prev.isCodeXml === detectedCodeXml
+                    prev.isCodeXml === detectedCodeXml &&
+                    prev.isQuote === detectedQuote
                 ) {
                     return prev
                 }
@@ -215,6 +222,7 @@ export const useEditor = (options?: UseEditorOptions) => {
                     isListOrdered: detectedListOrdered,
                     isListTodo: detectedListTodo,
                     isCodeXml: detectedCodeXml,
+                    isQuote: detectedQuote,
                 }
             })
         }
@@ -803,6 +811,39 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onToggleCodeXml?.()
     }, [options, handleSelectionChange, editorRef, isInternalUpdate])
 
+    const onQuote = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        editor.focus()
+        const selection = window.getSelection()
+        if (!selection || selection.rangeCount === 0) return
+
+        let quoteBlock: HTMLElement | null = null
+        let node: Node | null = selection.anchorNode
+        while (node && node !== editor) {
+            if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName.toLowerCase() === "blockquote") {
+                quoteBlock = node as HTMLElement
+                break
+            }
+            node = node.parentNode
+        }
+
+        if (quoteBlock) {
+            document.execCommand("formatBlock", false, "<p>")
+        } else {
+            document.execCommand("formatBlock", false, "<blockquote>")
+        }
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleQuote?.()
+    }, [options, handleSelectionChange, editorRef, isInternalUpdate])
+
     const { handleKeyDown } = useKeybindings({
         onBold,
         onItalic,
@@ -820,6 +861,7 @@ export const useEditor = (options?: UseEditorOptions) => {
         onListIndentIncrease,
         onListIndentDecrease,
         onCodeXml,
+        onQuote,
         detectCurrentFormat,
         handleSelectionChange,
         onChange: options?.onChange,
@@ -876,13 +918,6 @@ export const useEditor = (options?: UseEditorOptions) => {
     const onSetHeading3 = useCallback(() => {
         onSetTextFormatting("heading_3")
     }, [onSetTextFormatting])
-
-
-
-    const onQuote = useCallback(() => {
-        setState((prev) => ({ ...prev, isQuote: !prev.isQuote }))
-        options?.onToggleQuote?.()
-    }, [options])
 
     const onBaseline = useCallback((color?: string) => {
         setState((prev) => ({ ...prev, isBaseline: !prev.isBaseline }))

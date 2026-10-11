@@ -18,6 +18,7 @@ export interface UseKeybindingsOptions {
     onListIndentIncrease?: () => void
     onListIndentDecrease?: () => void
     onCodeXml?: () => void
+    onQuote?: () => void
     detectCurrentFormat?: () => TextFormat
     handleSelectionChange?: () => void
     onChange?: (html: string) => void
@@ -47,6 +48,7 @@ export const useKeybindings = ({
     onListIndentIncrease,
     onListIndentDecrease,
     onCodeXml,
+    onQuote,
     detectCurrentFormat,
     handleSelectionChange,
     onChange,
@@ -126,6 +128,11 @@ export const useKeybindings = ({
                 }
 
                 if (e.shiftKey) {
+                    if (key === 'q' || e.code === 'KeyQ') {
+                        e.preventDefault()
+                        onQuote?.()
+                        return
+                    }
                     if (key === 'l' || e.code === 'KeyL') {
                         e.preventDefault()
                         onAlignLeft?.()
@@ -314,6 +321,7 @@ export const useKeybindings = ({
             onListIndentIncrease,
             onListIndentDecrease,
             onCodeXml,
+            onQuote,
             detectCurrentFormat,
             handleSelectionChange,
             onChange,

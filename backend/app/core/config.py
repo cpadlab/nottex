@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
@@ -45,6 +45,17 @@ class Settings(BaseSettings):
     DATABASE_MIN_POOL_SIZE: int = 10
     DATABASE_MAX_IDLE_TIME_MS: int = 30000
     DATABASE_WAIT_QUEUE_TIMEOUT_MS: int = 5000
+
+    EMAILS_ENABLED: bool = True
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 1025
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_TLS: bool = False
+    SMTP_SSL: bool = False
+    SMTP_FROM_EMAIL: str = "noreply@nottex.com"
+    SMTP_FROM_NAME: str = "Nottex"
+    EMAIL_TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates" / "email"
 
 
 settings = Settings()

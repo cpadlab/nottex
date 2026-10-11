@@ -68,6 +68,7 @@ async def verify_email(payload: VerifyEmailRequest, request: Request):
 @router.post("/resend-verification", response_model=ResendVerificationResponse)
 async def resend_verification(payload: ResendVerificationRequest, request: Request):
     await limit_ip(request, "verification_email", limit=5, window_seconds=3600)
+    await limit_account("verification_email_cooldown", payload.email, limit=1, window_seconds=60)
     await limit_account("verification_email", payload.email, limit=3, window_seconds=3600)
     return await AuthController.resend_verification(payload)
 
@@ -75,6 +76,7 @@ async def resend_verification(payload: ResendVerificationRequest, request: Reque
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(payload: ForgotPasswordRequest, request: Request):
     await limit_ip(request, "password_reset_email", limit=5, window_seconds=3600)
+    await limit_account("password_reset_email_cooldown", payload.email, limit=1, window_seconds=60)
     await limit_account("password_reset_email", payload.email, limit=3, window_seconds=3600)
     return await AuthController.forgot_password(payload)
 

@@ -720,10 +720,9 @@ class NoteController:
         return results
 
     @staticmethod
-    async def subscribe_events(note_id: str, user_id: Optional[str]) -> AsyncGenerator[str, None]:
+    async def open_note_events(note_id: str, user_id: Optional[str], subscriber_id: str) -> asyncio.Queue:
         """
-        Server-Sent Events (SSE) generator for note updates.
-        Validates read permission and yields realtime JSON updates.
+        Validate permissions and reserve bounded SSE resources before HTTP streaming starts.
         """
         notes_col = NoteController._get_notes_col()
         doc = await notes_col.find_one({"id": note_id})
@@ -739,7 +738,14 @@ class NoteController:
                 detail="error.note_access_denied",
             )
 
-        queue = await note_broadcaster.subscribe(note_id)
+        return await note_broadcaster.subscribe(note_id, subscriber_id)
+
+    @staticmethod
+    async def subscribe_events(
+        note_id: str, user_id: Optional[str], queue: asyncio.Queue
+    ) -> AsyncGenerator[str, None]:
+        """SSE generator for a previously authorized and reserved note stream."""
+        notes_col = NoteController._get_notes_col()
 
         try:
             yield f"data: {json.dumps({'type': 'connected', 'note_id': note_id})}\n\n"
@@ -757,6 +763,9 @@ class NoteController:
                 current_doc = await notes_col.find_one({"id": note_id})
                 if not current_doc or not NoteController._can_read(current_doc, user_id):
                     break
+                if event.get("type") == "resync_required":
+                    yield f"data: {json.dumps(event)}\n\n"
+                    break
                 if event.get("type") == "access_changed":
                     continue
                 yield f"data: {json.dumps(event)}\n\n"
@@ -764,18 +773,24 @@ class NoteController:
             await note_broadcaster.unsubscribe(note_id, queue)
 
     @staticmethod
-    async def subscribe_user_events(user_id: str) -> AsyncGenerator[str, None]:
+    async def open_user_events(user_id: str) -> asyncio.Queue:
+        """Reserve bounded resources before starting the SSE response."""
+        return await user_broadcaster.subscribe(user_id)
+
+    @staticmethod
+    async def subscribe_user_events(user_id: str, queue: asyncio.Queue) -> AsyncGenerator[str, None]:
         """
         Global Server-Sent Events (SSE) generator for user-level updates:
         - Detects when notes are created, trashed, restored, permanently deleted, or shared from another device.
         """
-        queue = await user_broadcaster.subscribe(user_id)
         try:
             yield f"data: {json.dumps({'type': 'connected', 'user_id': user_id})}\n\n"
             while True:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=25.0)
                     yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("type") == "resync_required":
+                        break
                 except asyncio.TimeoutError:
                     yield ": keep-alive\n\n"
         finally:

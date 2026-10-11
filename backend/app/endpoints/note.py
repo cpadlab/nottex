@@ -17,6 +17,8 @@ from app.schemas.note import (
 )
 from app.schemas.user import UserResponse
 from app.shared.rate_limit import limit_account, limit_authenticated_request, limit_ip
+from app.shared.broadcaster import SSELimitExceeded
+from app.shared.rate_limit import client_ip
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 security = HTTPBearer(auto_error=False)
@@ -108,8 +110,16 @@ async def user_events(
     when a note is created, trashed, restored, deleted or shared.
     """
     await limit_ip(request, "sse_connection", limit=20, window_seconds=60)
+    try:
+        queue = await NoteController.open_user_events(user.id)
+    except SSELimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="error.sse_connection_limit",
+            headers={"Retry-After": "30"},
+        ) from exc
     generator = _guard_sse_session(
-        NoteController.subscribe_user_events(user.id), credentials.credentials, user.id
+        NoteController.subscribe_user_events(user.id, queue), credentials.credentials, user.id
     )
     return StreamingResponse(
         generator,
@@ -219,10 +229,19 @@ async def note_events(
     """
     await limit_ip(request, "sse_connection", limit=20, window_seconds=60)
     user_id = user.id if user else None
+    subscriber_id = user.id if user else f"ip:{client_ip(request)}"
+    try:
+        queue = await NoteController.open_note_events(note_id, user_id, subscriber_id)
+    except SSELimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="error.sse_connection_limit",
+            headers={"Retry-After": "30"},
+        ) from exc
 
     token = credentials.credentials if credentials else None
     generator = _guard_sse_session(
-        NoteController.subscribe_events(note_id, user_id), token, user_id
+        NoteController.subscribe_events(note_id, user_id, queue), token, user_id
     )
     return StreamingResponse(
         generator,

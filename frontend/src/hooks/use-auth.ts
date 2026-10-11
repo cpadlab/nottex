@@ -28,7 +28,7 @@ export interface UseAuthReturn {
     changeLanguage: (data: ChangeLanguageRequest) => Promise<UserActionResponse>;
     requestDeleteAccount: (data: RequestDeleteAccountRequest) => Promise<UserActionResponse>;
     confirmDeleteAccount: (data: ConfirmDeleteAccountRequest) => Promise<UserActionResponse>;
-    logout: () => void;
+    logout: () => Promise<void>;
 }
 
 export function useAuth(): UseAuthReturn {
@@ -110,7 +110,9 @@ export function useAuth(): UseAuthReturn {
 
     const changePassword = useCallback(
         async (data: ChangePasswordRequest): Promise<UserActionResponse> => {
-            return await authService.changePassword(data);
+            const response = await authService.changePassword(data);
+            setUser(null);
+            return response;
         },
         []
     );
@@ -118,9 +120,7 @@ export function useAuth(): UseAuthReturn {
     const changeEmail = useCallback(
         async (data: ChangeEmailRequest): Promise<UserActionResponse> => {
             const res = await authService.changeEmail(data);
-            if (res.user) {
-                setUser(res.user);
-            }
+            setUser(null);
             return res;
         },
         []
@@ -153,8 +153,8 @@ export function useAuth(): UseAuthReturn {
         []
     );
 
-    const logout = useCallback(() => {
-        authService.logout();
+    const logout = useCallback(async () => {
+        await authService.logout();
         setUser(null);
     }, []);
 

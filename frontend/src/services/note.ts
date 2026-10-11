@@ -12,7 +12,7 @@ import type {
 } from "@/types/note";
 
 export const noteService = {
-    
+
     async list(params?: ListNotesParams): Promise<PaginatedNotesResponse> {
         const response = await api.get<PaginatedNotesResponse>("/notes", {
             params,
@@ -76,28 +76,7 @@ export const noteService = {
         onEvent: (data: any) => void,
         onError?: (err: any) => void
     ): () => void {
-        const token = localStorage.getItem("access_token");
-        const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-        const url = `${baseURL}/notes/events/user${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-
-        const eventSource = new EventSource(url);
-
-        eventSource.onmessage = (event) => {
-            try {
-                const parsed = JSON.parse(event.data);
-                onEvent(parsed);
-            } catch (e) {
-                logger_error(e);
-            }
-        };
-
-        eventSource.onerror = (err) => {
-            if (onError) onError(err);
-        };
-
-        return () => {
-            eventSource.close();
-        };
+        return subscribeToSse("/notes/events/user", onEvent, onError, true);
     },
 
     subscribeToNoteEvents(
@@ -105,31 +84,115 @@ export const noteService = {
         onEvent: (data: any) => void,
         onError?: (err: any) => void
     ): () => void {
-        const token = localStorage.getItem("access_token");
-        const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
-        const url = `${baseURL}/notes/${noteId}/events${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+        return subscribeToSse(`/notes/${encodeURIComponent(noteId)}/events`, onEvent, onError, false);
+    },
+};
 
-        const eventSource = new EventSource(url);
+function subscribeToSse(
+    path: string,
+    onEvent: (data: any) => void,
+    onError: ((err: any) => void) | undefined,
+    requireAuthentication: boolean,
+): () => void {
+    const baseURL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+    const url = new URL(`${baseURL}${path}`, window.location.origin);
+    let stopped = false;
+    let controller: AbortController | null = null;
+    let retryTimer: number | undefined;
 
-        eventSource.onmessage = (event) => {
-            try {
-                const parsed = JSON.parse(event.data);
-                onEvent(parsed);
-            } catch (e) {
-                logger_error(e);
+    const consume = async (response: Response, signal: AbortSignal) => {
+        if (!response.body) throw new Error("SSE response has no readable body");
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const dispatchFrames = (final = false) => {
+            const frames = buffer.split(/\r?\n\r?\n/);
+            buffer = final ? "" : (frames.pop() ?? "");
+            for (const frame of frames) {
+                const data = frame
+                    .split(/\r?\n/)
+                    .filter((line) => line.startsWith("data:"))
+                    .map((line) => line.slice(5).replace(/^ /, ""))
+                    .join("\n");
+                if (!data) continue;
+                try {
+                    onEvent(JSON.parse(data));
+                } catch (error) {
+                    logger_error(error);
+                }
             }
         };
 
-        eventSource.onerror = (err) => {
-            if (onError) onError(err);
-        };
+        try {
+            while (!signal.aborted) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                dispatchFrames();
+            }
+            buffer += decoder.decode();
+            dispatchFrames(true);
+        } finally {
+            reader.releaseLock();
+        }
+    };
 
-        return () => {
-            eventSource.close();
-        };
-    },
-    
-};
+    const run = async () => {
+        let retryDelay = 1000;
+        while (!stopped) {
+            const token = localStorage.getItem("access_token");
+            if (requireAuthentication && !token) {
+                onError?.(new Error("Authentication required for this event stream"));
+                return;
+            }
+
+            const requestController = new AbortController();
+            controller = requestController;
+            try {
+                const headers = new Headers({ Accept: "text/event-stream" });
+                if (token) headers.set("Authorization", `Bearer ${token}`);
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers,
+                    credentials: "omit",
+                    cache: "no-store",
+                    signal: requestController.signal,
+                });
+                if (!response.ok) {
+                    const error = Object.assign(new Error(`SSE request failed (${response.status})`), {
+                        status: response.status,
+                    });
+                    if (response.status === 401) localStorage.removeItem("access_token");
+                    onError?.(error);
+                    if ([400, 401, 403, 404].includes(response.status)) return;
+                } else {
+                    await consume(response, requestController.signal);
+                    retryDelay = 1000;
+                }
+            } catch (error) {
+                if (stopped || requestController.signal.aborted) return;
+                onError?.(error);
+            } finally {
+                controller = null;
+            }
+
+            if (stopped) return;
+            await new Promise<void>((resolve) => {
+                retryTimer = window.setTimeout(resolve, retryDelay);
+            });
+            retryTimer = undefined;
+            retryDelay = Math.min(retryDelay * 2, 30000);
+        }
+    };
+
+    void run();
+    return () => {
+        stopped = true;
+        controller?.abort();
+        if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
+}
 
 function logger_error(e: any) {
     if (import.meta.env.DEV) {

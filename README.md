@@ -37,6 +37,16 @@ execution remains limited to same-origin assets. Certificates are supplied by
 the operator (for example, from an ACME client); this repository does not issue
 or renew certificates itself.
 
+Access tokens expire after 12 hours by default (production rejects a configured
+lifetime above 12 hours). Logout, password reset/change, and email change bump a
+per-user token version, revoking earlier tokens on the next API/SSE check. This
+revokes all of that user's sessions at once. The frontend now uses an
+`Authorization` header for SSE via `fetch`, so the JWT is no longer placed in
+request URLs. Tokens are still stored in `localStorage`; an XSS flaw could read
+them, so an HttpOnly cookie session with CSRF protection remains a worthwhile
+future hardening step. Existing access tokens without the new version claim are
+rejected after this update, so users must sign in again.
+
 The MongoDB initialization script creates `nottex_app` with `readWrite` access
 only to the `users` and `notes` databases. The application connects as that user;
 the root account is reserved for MongoDB initialization and its health check.

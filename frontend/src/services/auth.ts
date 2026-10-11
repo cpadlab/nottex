@@ -75,11 +75,13 @@ export const authService = {
 
     async changePassword(data: ChangePasswordRequest): Promise<UserActionResponse> {
         const response = await api.put<UserActionResponse>("/auth/password", data);
+        localStorage.removeItem("access_token");
         return response.data;
     },
 
     async changeEmail(data: ChangeEmailRequest): Promise<UserActionResponse> {
         const response = await api.put<UserActionResponse>("/auth/email", data);
+        localStorage.removeItem("access_token");
         return response.data;
     },
 
@@ -124,7 +126,17 @@ export const authService = {
         return response.data;
     },
 
-    logout(): void {
+    async logout(): Promise<void> {
+        const token = localStorage.getItem("access_token");
+        if (token) {
+            try {
+                await api.post("/auth/logout", {}, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+            } catch {
+                // Always clear the local session even if the server cannot be reached.
+            }
+        }
         localStorage.removeItem("access_token");
     },
 };

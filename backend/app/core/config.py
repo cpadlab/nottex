@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     RESEND_VERIFICATION_COOLDOWN_MINUTES: int = 15
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
     PASSWORD_RESET_COOLDOWN_MINUTES: int = 15  # 15 minutes between reset requests
+    TOKEN_CLEANUP_INTERVAL_MINUTES: int = 60  # Background cleanup runs every hour
 
     CORS_ALLOW_ORIGINS: List[str] = [
         "http://localhost:5173",

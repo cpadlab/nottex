@@ -25,6 +25,13 @@ class Settings(BaseSettings):
 
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    SECRET_KEY: str = "nottex-super-secret-key-change-in-production-random-32bytes"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
+    RESEND_VERIFICATION_COOLDOWN_MINUTES: int = 15
 
     CORS_ALLOW_ORIGINS: List[str] = [
         "http://localhost:5173",
@@ -46,6 +53,7 @@ class Settings(BaseSettings):
     DATABASE_MAX_IDLE_TIME_MS: int = 30000
     DATABASE_WAIT_QUEUE_TIMEOUT_MS: int = 5000
 
+    # Email / SMTP (Mailpit in development, SMTP / Email API provider in production)
     EMAILS_ENABLED: bool = True
     SMTP_HOST: str = "localhost"
     SMTP_PORT: int = 1025

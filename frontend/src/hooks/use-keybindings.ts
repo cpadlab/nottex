@@ -176,15 +176,61 @@ export const useKeybindings = ({
                 if (selection && selection.rangeCount > 0 && editorRef?.current) {
                     let node: Node | null = selection.anchorNode
                     let todoLi: HTMLElement | null = null
+                    let blockquote: HTMLElement | null = null
+                    let currentBlockInQuote: HTMLElement | null = null
+
                     while (node && node !== editorRef.current) {
-                        if (
-                            node.nodeType === Node.ELEMENT_NODE &&
-                            (node as HTMLElement).getAttribute('data-type') === 'todo-item'
-                        ) {
-                            todoLi = node as HTMLElement
-                            break
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            const el = node as HTMLElement
+                            if (el.getAttribute('data-type') === 'todo-item') {
+                                todoLi = el
+                                break
+                            }
+                            if (el.tagName.toLowerCase() === 'blockquote') {
+                                blockquote = el
+                                break
+                            }
+                            currentBlockInQuote = el
                         }
                         node = node.parentNode
+                    }
+
+                    if (blockquote) {
+                        const isCurrentEmpty = currentBlockInQuote
+                            ? (currentBlockInQuote.textContent?.trim() === '' || currentBlockInQuote.innerHTML === '<br>')
+                            : (blockquote.textContent?.trim() === '' || blockquote.innerHTML === '<br>')
+
+                        if (isCurrentEmpty) {
+                            e.preventDefault()
+                            if (currentBlockInQuote && currentBlockInQuote !== blockquote) {
+                                currentBlockInQuote.remove()
+                            }
+
+                            const p = document.createElement('p')
+                            p.innerHTML = '<br>'
+
+                            const remainingText = blockquote.textContent?.trim() || ''
+                            if (remainingText === '' || blockquote.innerHTML === '<br>' || (blockquote.children.length === 0 && !blockquote.textContent)) {
+                                blockquote.replaceWith(p)
+                            } else {
+                                blockquote.after(p)
+                            }
+
+                            const range = document.createRange()
+                            range.selectNodeContents(p)
+                            range.collapse(false)
+                            selection.removeAllRanges()
+                            selection.addRange(range)
+
+                            if (onChange && editorRef.current) {
+                                if (isInternalUpdate) {
+                                    isInternalUpdate.current = true
+                                }
+                                onChange(editorRef.current.innerHTML)
+                            }
+                            handleSelectionChange?.()
+                            return
+                        }
                     }
 
                     if (todoLi) {
@@ -261,15 +307,54 @@ export const useKeybindings = ({
                 if (selection && selection.rangeCount > 0 && editorRef?.current) {
                     let node: Node | null = selection.anchorNode
                     let todoLi: HTMLElement | null = null
+                    let blockquote: HTMLElement | null = null
+                    let currentBlockInQuote: HTMLElement | null = null
+
                     while (node && node !== editorRef.current) {
-                        if (
-                            node.nodeType === Node.ELEMENT_NODE &&
-                            (node as HTMLElement).getAttribute('data-type') === 'todo-item'
-                        ) {
-                            todoLi = node as HTMLElement
-                            break
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            const el = node as HTMLElement
+                            if (el.getAttribute('data-type') === 'todo-item') {
+                                todoLi = el
+                                break
+                            }
+                            if (el.tagName.toLowerCase() === 'blockquote') {
+                                blockquote = el
+                                break
+                            }
+                            currentBlockInQuote = el
                         }
                         node = node.parentNode
+                    }
+
+                    if (blockquote) {
+                        const isQuoteEmpty = blockquote.textContent?.trim() === '' || blockquote.innerHTML === '<br>'
+                        const range = selection.getRangeAt(0)
+                        const isAtStart = range.collapsed && range.startOffset === 0 && (
+                            selection.anchorNode === blockquote ||
+                            selection.anchorNode === blockquote.firstChild ||
+                            (currentBlockInQuote && currentBlockInQuote === blockquote.firstElementChild && (selection.anchorNode === currentBlockInQuote || selection.anchorNode === currentBlockInQuote.firstChild))
+                        )
+
+                        if (isQuoteEmpty || isAtStart) {
+                            e.preventDefault()
+                            const p = document.createElement('p')
+                            p.innerHTML = isQuoteEmpty ? '<br>' : (blockquote.innerHTML || '<br>')
+                            blockquote.replaceWith(p)
+                            const newRange = document.createRange()
+                            newRange.selectNodeContents(p)
+                            newRange.collapse(true)
+                            selection.removeAllRanges()
+                            selection.addRange(newRange)
+
+                            if (onChange && editorRef.current) {
+                                if (isInternalUpdate) {
+                                    isInternalUpdate.current = true
+                                }
+                                onChange(editorRef.current.innerHTML)
+                            }
+                            handleSelectionChange?.()
+                            return
+                        }
                     }
 
                     if (todoLi) {
@@ -290,6 +375,44 @@ export const useKeybindings = ({
                             range.collapse(false)
                             selection.removeAllRanges()
                             selection.addRange(range)
+
+                            if (onChange && editorRef.current) {
+                                if (isInternalUpdate) {
+                                    isInternalUpdate.current = true
+                                }
+                                onChange(editorRef.current.innerHTML)
+                            }
+                            handleSelectionChange?.()
+                            return
+                        }
+                    }
+                }
+            }
+
+            if (e.key === 'ArrowDown') {
+                const selection = window.getSelection()
+                if (selection && selection.rangeCount > 0 && editorRef?.current) {
+                    let node: Node | null = selection.anchorNode
+                    let blockquote: HTMLElement | null = null
+                    while (node && node !== editorRef.current) {
+                        if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName.toLowerCase() === 'blockquote') {
+                            blockquote = node as HTMLElement
+                            break
+                        }
+                        node = node.parentNode
+                    }
+
+                    if (blockquote && !blockquote.nextElementSibling) {
+                        const range = selection.getRangeAt(0)
+                        if (range.collapsed) {
+                            const p = document.createElement('p')
+                            p.innerHTML = '<br>'
+                            blockquote.after(p)
+                            const newRange = document.createRange()
+                            newRange.selectNodeContents(p)
+                            newRange.collapse(false)
+                            selection.removeAllRanges()
+                            selection.addRange(newRange)
 
                             if (onChange && editorRef.current) {
                                 if (isInternalUpdate) {

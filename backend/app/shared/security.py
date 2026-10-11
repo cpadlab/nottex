@@ -143,3 +143,69 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
+
+def generate_totp_secret() -> str:
+    """
+    Generates a secure random 32-character base32 secret for TOTP.
+    """
+    try:
+        import pyotp
+        return pyotp.random_base32()
+    except ImportError:
+        random_bytes = secrets.token_bytes(20)
+        return base64.b32encode(random_bytes).decode("utf-8").replace("=", "")
+
+
+def get_totp_uri(secret: str, email: str, issuer: Optional[str] = None) -> str:
+    """
+    Generates the otpauth:// URI string for QR code generation.
+    """
+    app_name = issuer or settings.APP_NAME
+    try:
+        import pyotp
+        totp = pyotp.TOTP(secret)
+        return totp.provisioning_uri(name=email, issuer_name=app_name)
+    except ImportError:
+        from urllib.parse import quote
+        safe_issuer = quote(app_name)
+        safe_email = quote(email)
+        return f"otpauth://totp/{safe_issuer}:{safe_email}?secret={secret}&issuer={safe_issuer}&algorithm=SHA1&digits=6&period=30"
+
+
+def verify_totp_code(secret: str, code: str, valid_window: int = 1) -> bool:
+    """
+    Verifies a 6-digit TOTP code against the secret key.
+    Allows a time window (valid_window=1 permits +/- 30 seconds drift).
+    """
+    clean_code = str(code).strip()
+    if not clean_code.isdigit() or len(clean_code) != 6:
+        return False
+
+    try:
+        import pyotp
+        totp = pyotp.TOTP(secret)
+        return bool(totp.verify(clean_code, valid_window=valid_window))
+    except ImportError:
+        import struct
+        import time
+
+        curr_time = int(time.time()) // 30
+        try:
+            padded_secret = secret.upper()
+            padding = "=" * ((8 - len(padded_secret) % 8) % 8)
+            key = base64.b32decode(padded_secret + padding)
+        except Exception:
+            return False
+
+        for offset in range(-valid_window, valid_window + 1):
+            time_step = curr_time + offset
+            msg = struct.pack(">Q", time_step)
+            h = hmac.new(key, msg, hashlib.sha1).digest()
+            o = h[19] & 15
+            token_int = (struct.unpack(">I", h[o : o + 4])[0] & 0x7FFFFFFF) % 1000000
+            token_str = str(token_int).zfill(6)
+            if hmac.compare_digest(token_str, clean_code):
+                return True
+
+        return False
+

@@ -23,6 +23,8 @@ from app.schemas.user import (
     ChangeEmailRequest,
     ChangeLanguageRequest,
     ChangePasswordRequest,
+    ConfirmDeleteAccountRequest,
+    RequestDeleteAccountRequest,
     UpdateProfileRequest,
     UserActionResponse,
     UserResponse,
@@ -131,5 +133,19 @@ async def change_language(
     current_user: UserResponse = Depends(get_current_user_dep),
 ):
     return await AuthController.change_language(current_user.id, payload)
+
+
+@router.delete("/account", response_model=UserActionResponse)
+async def request_delete_account(
+    payload: RequestDeleteAccountRequest,
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    return await AuthController.request_delete_account(current_user.id, payload)
+
+
+@router.post("/account/confirm-delete", response_model=UserActionResponse)
+async def confirm_delete_account(payload: ConfirmDeleteAccountRequest):
+    return await AuthController.confirm_delete_account(payload)
+
 
 

@@ -28,6 +28,8 @@ from app.schemas.user import (
     ChangeEmailRequest,
     ChangeLanguageRequest,
     ChangePasswordRequest,
+    ConfirmDeleteAccountRequest,
+    RequestDeleteAccountRequest,
     UpdateProfileRequest,
     UserActionResponse,
     UserResponse,
@@ -193,7 +195,42 @@ async def send_email_changed_email_task(
             logger.error(f"Error sending email changed notification to {new_email}: {e}")
 
 
+async def send_delete_account_email_task(
+    email: str,
+    first_name: str,
+    token: str,
+    language: str = "es",
+) -> None:
+    """
+    Background worker task to dispatch account deletion confirmation email with secure token link.
+    """
+    delete_url = f"{settings.FRONTEND_URL}/delete-account?token={token}"
+    is_en = language.lower().startswith("en")
+    template_name = "en/delete_account.html" if is_en else "es/delete_account.html"
+    subject = (
+        f"Confirm deletion of your {settings.APP_NAME} account"
+        if is_en
+        else f"Confirmación para eliminar tu cuenta en {settings.APP_NAME}"
+    )
+
+    try:
+        await emailer.send_email(
+            to=email,
+            subject=subject,
+            template_name=template_name,
+            context={
+                "app_name": settings.APP_NAME,
+                "first_name": first_name.capitalize(),
+                "delete_url": delete_url,
+                "token": token,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error sending account deletion email to {email}: {e}")
+
+
 class AuthController:
+
 
     """
     Controller that contains the business logic for authentication and user verification.
@@ -1144,6 +1181,141 @@ class AuthController:
             message="user.language_updated_success",
             user=user_response,
         )
+
+    @staticmethod
+    async def request_delete_account(
+        user_id: str,
+        payload: RequestDeleteAccountRequest,
+    ) -> UserActionResponse:
+        """
+        Initiates account deletion:
+        - Validates current password
+        - If TOTP is enabled, validates the 6-digit TOTP code
+        - Generates temporal deletion token (valid 24h)
+        - Dispatches email with confirmation link
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        if not verify_password(payload.password, user.get("hashed_password", "")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_password",
+            )
+
+        if user.get("is_totp_enabled"):
+            if not payload.totp_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="error.totp_code_required",
+                )
+            totp_secret = user.get("totp_secret")
+            if not totp_secret or not verify_totp_code(totp_secret, payload.totp_code):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="error.invalid_totp_code",
+                )
+
+        now = datetime.now(timezone.utc)
+        token = generate_verification_token()
+        token_expires_at = now + timedelta(hours=settings.VERIFICATION_TOKEN_EXPIRE_HOURS)
+
+        await users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "delete_account_token": token,
+                    "delete_account_token_expires_at": token_expires_at,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        asyncio.create_task(
+            send_delete_account_email_task(
+                email=user["email"],
+                first_name=user.get("first_name", ""),
+                token=token,
+                language=user.get("language", "es"),
+            )
+        )
+
+        logger.info(f"Account deletion requested for user {user.get('email')}")
+
+        return UserActionResponse(
+            message="user.delete_account_email_sent",
+        )
+
+    @staticmethod
+    async def confirm_delete_account(
+        payload: ConfirmDeleteAccountRequest,
+    ) -> UserActionResponse:
+        """
+        Completes permanent cascade deletion of an account via email token link:
+        - Validates token & expiration
+        - Deletes user from users collection
+        - Cascade deletes all user workspaces
+        - Cascade deletes all notes owned by user
+        - Removes user from collaborators list on any shared notes
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"delete_account_token": payload.token})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_or_used_token",
+            )
+
+        expires_at = user.get("delete_account_token_expires_at")
+        if expires_at:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > expires_at:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="error.token_expired",
+                )
+
+        user_id = user["_id"]
+        email = user["email"]
+
+        workspaces_col = db.notes["workspaces"]
+        notes_col = db.notes["notes"]
+
+        await workspaces_col.delete_many({"user_id": user_id})
+
+        await notes_col.delete_many({"user_id": user_id})
+
+        await notes_col.update_many(
+            {"collaborators.user_id": user_id},
+            {"$pull": {"collaborators": {"user_id": user_id}}},
+        )
+
+        await users_collection.delete_one({"_id": user_id})
+
+        logger.info(f"Account permanently cascade deleted for user {email} (id: {user_id})")
+
+        return UserActionResponse(
+            message="user.account_deleted_success",
+        )
+
 
 
 

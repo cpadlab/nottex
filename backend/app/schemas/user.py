@@ -95,3 +95,13 @@ class UserActionResponse(BaseModel):
     user: Optional[UserResponse] = None
 
 
+class RequestDeleteAccountRequest(BaseModel):
+    password: str = Field(min_length=1)
+    totp_code: Optional[str] = Field(default=None)
+
+
+class ConfirmDeleteAccountRequest(BaseModel):
+    token: str = Field(min_length=1)
+
+
+

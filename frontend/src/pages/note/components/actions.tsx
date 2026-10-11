@@ -65,37 +65,34 @@ export const NoteActions = () => {
     ]
 
     return (
-        <div className="flex md:flex-row flex-col-reverse md:items-center md:justify-between gap-4">
-            
-            <NoteBreadcrumb />
+        <div className="flex items-center justify-between gap-4">
 
-            <div className="flex items-center gap-4 justify-between">
-
+            <div className="flex items-center gap-2">
                 <div className="-ml-2.5 md:hidden flex">
                     <SidebarTrigger />
-                </div>
+                </div>            
+                <NoteBreadcrumb />
+            </div>
 
-                <div className="flex items-center gap-2">
-
-                    <Button size="icon" variant={isPinned ? "default" : "outline"} onClick={onTogglePin}>
-                        <PinIcon />
-                    </Button>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger render={<Button size="icon" variant="outline" className="cursor-pointer" />}>
-                            <EllipsisVerticalIcon />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            {actions.map((item) => (
-                                <DropdownMenuItem key={item.value} onClick={item.onClick} className="cursor-pointer flex items-center gap-2">
-                                    <item.icon />
-                                    <span>{translation(item.label)}</span>
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                </div>
+            <div className="flex items-center gap-2">
+                
+                <Button size="icon" variant={isPinned ? "default" : "outline"} onClick={onTogglePin}>
+                    <PinIcon />
+                </Button>
+                
+                <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button size="icon" variant="outline" className="cursor-pointer" />}>
+                        <EllipsisVerticalIcon />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {actions.map((item) => (
+                            <DropdownMenuItem key={item.value} onClick={item.onClick} className="cursor-pointer flex items-center gap-2">
+                                <item.icon />
+                                <span>{translation(item.label)}</span>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
 
             </div>
 

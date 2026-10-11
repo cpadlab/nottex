@@ -14,13 +14,22 @@ export interface Note {
     content: string;
     color: string | null;
     is_pinned: boolean;
+    is_trashed: boolean;
+    trashed_at: string | null;
     workspace_id: string | null;
     tags: string[];
     is_public: boolean;
+    is_shared: boolean;
     collaborators: NoteCollaborator[];
+    my_permission: "owner" | "read" | "write" | "viewer";
     version: number;
     created_at: string;
     updated_at: string;
+}
+
+export interface NoteDuplicateRequest {
+    title?: string;
+    workspace_id?: string | null;
 }
 
 export interface NoteCreate {
@@ -76,6 +85,7 @@ export interface WorkspaceWithNotes {
 export interface ListNotesParams {
     workspace_id?: string;
     is_pinned?: boolean;
+    is_trashed?: boolean;
     tag?: string;
     search?: string;
     sort_by?: "updated_at" | "created_at" | "title";

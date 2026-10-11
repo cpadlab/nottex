@@ -3,6 +3,7 @@ import type {
     ListNotesParams,
     Note,
     NoteCreate,
+    NoteDuplicateRequest,
     NoteShareRequest,
     NoteUnshareRequest,
     NoteUpdate,
@@ -39,8 +40,20 @@ export const noteService = {
         return response.data;
     },
 
-    async delete(noteId: string): Promise<{ message: string }> {
-        const response = await api.delete<{ message: string }>(`/notes/${noteId}`);
+    async delete(noteId: string, permanent: boolean = false): Promise<{ message: string }> {
+        const response = await api.delete<{ message: string }>(`/notes/${noteId}`, {
+            params: { permanent },
+        });
+        return response.data;
+    },
+
+    async restore(noteId: string): Promise<Note> {
+        const response = await api.post<Note>(`/notes/${noteId}/restore`);
+        return response.data;
+    },
+
+    async duplicate(noteId: string, data?: NoteDuplicateRequest): Promise<Note> {
+        const response = await api.post<Note>(`/notes/${noteId}/duplicate`, data || {});
         return response.data;
     },
 
@@ -52,6 +65,34 @@ export const noteService = {
     async unshare(noteId: string, data: NoteUnshareRequest): Promise<Note> {
         const response = await api.post<Note>(`/notes/${noteId}/unshare`, data);
         return response.data;
+    },
+
+    subscribeToUserEvents(
+        onEvent: (data: any) => void,
+        onError?: (err: any) => void
+    ): () => void {
+        const token = localStorage.getItem("access_token");
+        const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+        const url = `${baseURL}/notes/events/user${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+
+        const eventSource = new EventSource(url);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const parsed = JSON.parse(event.data);
+                onEvent(parsed);
+            } catch (e) {
+                logger_error(e);
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            if (onError) onError(err);
+        };
+
+        return () => {
+            eventSource.close();
+        };
     },
 
     subscribeToNoteEvents(

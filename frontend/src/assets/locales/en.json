@@ -119,6 +119,11 @@
         "created_success": "Note created successfully.",
         "updated_success": "Note updated successfully.",
         "deleted_success": "Note deleted successfully.",
-        "shared_success": "Note shared successfully."
+        "trashed_success": "Note moved to trash.",
+        "restored_success": "Note restored successfully.",
+        "left_success": "You have left this shared note.",
+        "permanently_deleted_success": "Note permanently deleted.",
+        "shared_success": "Note shared successfully.",
+        "duplicated_success": "Note duplicated successfully."
     }
 }

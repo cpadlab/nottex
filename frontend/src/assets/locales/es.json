@@ -119,6 +119,11 @@
         "created_success": "Nota creada con éxito.",
         "updated_success": "Nota actualizada con éxito.",
         "deleted_success": "Nota eliminada con éxito.",
-        "shared_success": "Nota compartida con éxito."
+        "trashed_success": "Nota enviada a la papelera.",
+        "restored_success": "Nota restaurada con éxito.",
+        "left_success": "Has dejado de colaborar en esta nota.",
+        "permanently_deleted_success": "Nota eliminada definitivamente.",
+        "shared_success": "Nota compartida con éxito.",
+        "duplicated_success": "Nota duplicada con éxito."
     }
 }

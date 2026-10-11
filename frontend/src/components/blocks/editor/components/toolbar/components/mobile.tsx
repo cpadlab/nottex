@@ -170,7 +170,7 @@ export const MobileSelect = () => {
                 <EllipsisIcon />
             </SelectTrigger>
         
-            <SelectContent className="w-auto min-w-[240px]">
+            <SelectContent className="w-auto md:min-w-[240px]">
                 {items.map((item, index) => {
                     return (
                         <Fragment key={item.value}>
@@ -185,7 +185,7 @@ export const MobileSelect = () => {
                                         <span>{translation(item.label)}</span>
                                     </div>
                                     {item.shortcut && (
-                                        <KbdGroup>
+                                        <KbdGroup className="hidden md:inline-flex">
                                             {item.shortcut.map((key) => (
                                                 <Kbd key={key}>{key}</Kbd>
                                             ))}

@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { Leftbar } from './components/leftbar/leftbar'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '../ui/sidebar'
+import { SidebarInset, SidebarProvider } from '../ui/sidebar'
 
 const Layout = () => {
     return (

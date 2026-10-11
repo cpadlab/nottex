@@ -6,6 +6,12 @@ export interface UseKeybindingsOptions {
     onItalic?: () => void
     onUnderline?: () => void
     onStrikethrough?: () => void
+    onSuperscript?: () => void
+    onSubscript?: () => void
+    onAlignLeft?: () => void
+    onAlignCenter?: () => void
+    onAlignRight?: () => void
+    onAlignJustify?: () => void
     detectCurrentFormat?: () => TextFormat
     handleSelectionChange?: () => void
     onChange?: (html: string) => void
@@ -23,6 +29,12 @@ export const useKeybindings = ({
     onItalic,
     onUnderline,
     onStrikethrough,
+    onSuperscript,
+    onSubscript,
+    onAlignLeft,
+    onAlignCenter,
+    onAlignRight,
+    onAlignJustify,
     detectCurrentFormat,
     handleSelectionChange,
     onChange,
@@ -60,6 +72,41 @@ export const useKeybindings = ({
                     onStrikethrough?.()
                     return
                 }
+
+                if ((e.key === '.' || e.code === 'Period') && !e.shiftKey) {
+                    e.preventDefault()
+                    onSuperscript?.()
+                    return
+                }
+
+                if ((e.key === ',' || e.code === 'Comma') && !e.shiftKey) {
+                    e.preventDefault()
+                    onSubscript?.()
+                    return
+                }
+
+                if (e.shiftKey) {
+                    if (key === 'l' || e.code === 'KeyL') {
+                        e.preventDefault()
+                        onAlignLeft?.()
+                        return
+                    }
+                    if (key === 'e' || e.code === 'KeyE') {
+                        e.preventDefault()
+                        onAlignCenter?.()
+                        return
+                    }
+                    if (key === 'r' || e.code === 'KeyR') {
+                        e.preventDefault()
+                        onAlignRight?.()
+                        return
+                    }
+                    if (key === 'j' || e.code === 'KeyJ') {
+                        e.preventDefault()
+                        onAlignJustify?.()
+                        return
+                    }
+                }
             }
 
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -83,6 +130,12 @@ export const useKeybindings = ({
             onItalic,
             onUnderline,
             onStrikethrough,
+            onSuperscript,
+            onSubscript,
+            onAlignLeft,
+            onAlignCenter,
+            onAlignRight,
+            onAlignJustify,
             detectCurrentFormat,
             handleSelectionChange,
             onChange,

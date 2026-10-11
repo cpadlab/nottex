@@ -62,6 +62,13 @@ const formatToTag: Record<TextFormat, string> = {
     heading_3: "h3",
 }
 
+const ALIGN_COMMAND_MAP: Record<TextAlignment, string> = {
+    align_left: "justifyLeft",
+    align_center: "justifyCenter",
+    align_right: "justifyRight",
+    align_justify: "justifyFull",
+}
+
 export const useEditor = (options?: UseEditorOptions) => {
     
     const editorRef = useRef<HTMLDivElement>(null)
@@ -116,6 +123,19 @@ export const useEditor = (options?: UseEditorOptions) => {
             const isItalicState = document.queryCommandState("italic")
             const isUnderlineState = document.queryCommandState("underline")
             const isStrikethroughState = document.queryCommandState("strikeThrough")
+            const isSuperscriptState = document.queryCommandState("superscript")
+            const isSubscriptState = document.queryCommandState("subscript")
+
+            let detectedAlign: TextAlignment = "align_left"
+            if (document.queryCommandState("justifyCenter")) {
+                detectedAlign = "align_center"
+            } else if (document.queryCommandState("justifyRight")) {
+                detectedAlign = "align_right"
+            } else if (document.queryCommandState("justifyFull")) {
+                detectedAlign = "align_justify"
+            } else if (document.queryCommandState("justifyLeft")) {
+                detectedAlign = "align_left"
+            }
 
             setState((prev) => {
                 if (
@@ -123,7 +143,10 @@ export const useEditor = (options?: UseEditorOptions) => {
                     prev.isBold === isBoldState &&
                     prev.isItalic === isItalicState &&
                     prev.isUnderline === isUnderlineState &&
-                    prev.isStrikethrough === isStrikethroughState
+                    prev.isStrikethrough === isStrikethroughState &&
+                    prev.isSuperscript === isSuperscriptState &&
+                    prev.isSubscript === isSubscriptState &&
+                    prev.textAlign === detectedAlign
                 ) {
                     return prev
                 }
@@ -134,6 +157,9 @@ export const useEditor = (options?: UseEditorOptions) => {
                     isItalic: isItalicState,
                     isUnderline: isUnderlineState,
                     isStrikethrough: isStrikethroughState,
+                    isSuperscript: isSuperscriptState,
+                    isSubscript: isSubscriptState,
+                    textAlign: detectedAlign,
                 }
             })
         }
@@ -177,13 +203,42 @@ export const useEditor = (options?: UseEditorOptions) => {
         }
     }, [handleSelectionChange])
 
+    const cleanupNestedScripts = useCallback((container: HTMLElement) => {
+        let nested = container.querySelector("sup sup, sub sub, sup sub, sub sup")
+        if (!nested) return
+
+        const selection = window.getSelection()
+        let savedRange: Range | null = null
+        if (selection && selection.rangeCount > 0 && container.contains(selection.anchorNode)) {
+            try {
+                savedRange = selection.getRangeAt(0).cloneRange()
+            } catch {
+                savedRange = null
+            }
+        }
+
+        while (nested) {
+            nested.replaceWith(...Array.from(nested.childNodes))
+            nested = container.querySelector("sup sup, sub sub, sup sub, sub sup")
+        }
+
+        if (savedRange && selection) {
+            try {
+                selection.removeAllRanges()
+                selection.addRange(savedRange)
+            } catch {
+            }
+        }
+    }, [])
+
     const handleInput = useCallback(() => {
         if (!editorRef.current) return
+        cleanupNestedScripts(editorRef.current)
         const html = editorRef.current.innerHTML
         isInternalUpdate.current = true
         options?.onChange?.(html)
         handleSelectionChange()
-    }, [options, handleSelectionChange])
+    }, [options, handleSelectionChange, cleanupNestedScripts])
 
     const executeInlineCommand = useCallback((command: string) => {
         const editor = editorRef.current
@@ -223,11 +278,108 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onToggleStrikethrough?.()
     }, [executeInlineCommand, options])
 
+    const onSuperscript = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        // Disable subscript first to prevent nesting sup inside sub
+        if (document.queryCommandState("subscript")) {
+            document.execCommand("subscript", false)
+        }
+
+        document.execCommand("superscript", false)
+        cleanupNestedScripts(editor)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleSuperscript?.()
+    }, [options, handleSelectionChange, cleanupNestedScripts])
+
+    const onSubscript = useCallback(() => {
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        if (document.queryCommandState("superscript")) {
+            document.execCommand("superscript", false)
+        }
+
+        document.execCommand("subscript", false)
+        cleanupNestedScripts(editor)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+        options?.onToggleSubscript?.()
+    }, [options, handleSelectionChange, cleanupNestedScripts])
+
+    const onSetTextAlign = useCallback((alignment: TextAlignment) => {
+        setState((prev) => ({ ...prev, textAlign: alignment }))
+        options?.onSetTextAlign?.(alignment)
+
+        const editor = editorRef.current
+        if (!editor) return
+
+        if (document.activeElement !== editor) {
+            editor.focus()
+        }
+
+        const command = ALIGN_COMMAND_MAP[alignment]
+        document.execCommand(command, false)
+
+        if (options?.onChange) {
+            isInternalUpdate.current = true
+            options.onChange(editor.innerHTML)
+        }
+
+        handleSelectionChange()
+    }, [options, handleSelectionChange])
+
+    const onAlignLeft = useCallback(() => {
+        onSetTextAlign("align_left")
+        options?.onAlignLeft?.()
+    }, [onSetTextAlign, options])
+
+    const onAlignCenter = useCallback(() => {
+        onSetTextAlign("align_center")
+        options?.onAlignCenter?.()
+    }, [onSetTextAlign, options])
+
+    const onAlignRight = useCallback(() => {
+        onSetTextAlign("align_right")
+        options?.onAlignRight?.()
+    }, [onSetTextAlign, options])
+
+    const onAlignJustify = useCallback(() => {
+        onSetTextAlign("align_justify")
+        options?.onAlignJustify?.()
+    }, [onSetTextAlign, options])
+
     const { handleKeyDown } = useKeybindings({
         onBold,
         onItalic,
         onUnderline,
         onStrikethrough,
+        onSuperscript,
+        onSubscript,
+        onAlignLeft,
+        onAlignCenter,
+        onAlignRight,
+        onAlignJustify,
         detectCurrentFormat,
         handleSelectionChange,
         onChange: options?.onChange,
@@ -323,34 +475,6 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onToggleOrderedList?.()
     }, [options])
 
-    const onAlignLeft = useCallback(() => {
-        setState((prev) => ({ ...prev, textAlign: "align_left" }))
-        options?.onAlignLeft?.()
-        options?.onSetTextAlign?.("align_left")
-    }, [options])
-
-    const onAlignCenter = useCallback(() => {
-        setState((prev) => ({ ...prev, textAlign: "align_center" }))
-        options?.onAlignCenter?.()
-        options?.onSetTextAlign?.("align_center")
-    }, [options])
-
-    const onAlignRight = useCallback(() => {
-        setState((prev) => ({ ...prev, textAlign: "align_right" }))
-        options?.onAlignRight?.()
-        options?.onSetTextAlign?.("align_right")
-    }, [options])
-
-    const onAlignJustify = useCallback(() => {
-        setState((prev) => ({ ...prev, textAlign: "align_justify" }))
-        options?.onAlignJustify?.()
-        options?.onSetTextAlign?.("align_justify")
-    }, [options])
-
-    const onSetTextAlign = useCallback((alignment: TextAlignment) => {
-        setState((prev) => ({ ...prev, textAlign: alignment }))
-        options?.onSetTextAlign?.(alignment)
-    }, [options])
 
     const onQuote = useCallback(() => {
         setState((prev) => ({ ...prev, isQuote: !prev.isQuote }))
@@ -385,23 +509,6 @@ export const useEditor = (options?: UseEditorOptions) => {
         options?.onInsertVideo?.(src)
     }, [options])
 
-    const onSuperscript = useCallback(() => {
-        setState((prev) => ({
-            ...prev,
-            isSuperscript: !prev.isSuperscript,
-            isSubscript: false,
-        }))
-        options?.onToggleSuperscript?.()
-    }, [options])
-
-    const onSubscript = useCallback(() => {
-        setState((prev) => ({
-            ...prev,
-            isSubscript: !prev.isSubscript,
-            isSuperscript: false,
-        }))
-        options?.onToggleSubscript?.()
-    }, [options])
 
     return {
         editorRef,

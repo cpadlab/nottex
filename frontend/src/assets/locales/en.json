@@ -86,7 +86,14 @@
         "password_too_short": "Password must be at least 8 characters long.",
         "password_no_uppercase": "Password must contain at least one uppercase letter.",
         "password_no_lowercase": "Password must contain at least one lowercase letter.",
-        "password_no_special_or_digit": "Password must contain at least one number or special character."
+        "password_no_special_or_digit": "Password must contain at least one number or special character.",
+        "workspace_name_empty": "Workspace name cannot be empty.",
+        "workspace_not_found": "Workspace not found.",
+        "parent_workspace_not_found": "Parent workspace not found.",
+        "workspace_cycle_detected": "Cannot move a workspace into one of its own subfolders.",
+        "cannot_move_into_deleted_workspace": "Cannot move items into the workspace being deleted.",
+        "destination_workspace_not_found": "Destination workspace not found.",
+        "cannot_move_into_child_workspace": "Cannot move items into one of its own subfolders."
     },
     "auth": {
         "register_success": "Registration successful. A verification email has been sent.",
@@ -95,5 +102,10 @@
         "verification_email_sent": "A new verification email has been sent.",
         "forgot_password_email_sent": "If the email is registered, you will receive password reset instructions.",
         "password_reset_success": "Your password has been successfully reset."
+    },
+    "workspace": {
+        "created_success": "Workspace created successfully.",
+        "updated_success": "Workspace updated successfully.",
+        "deleted_success": "Workspace deleted successfully."
     }
 }

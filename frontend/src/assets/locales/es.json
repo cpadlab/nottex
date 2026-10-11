@@ -86,7 +86,14 @@
         "password_too_short": "La contraseña debe tener al menos 8 caracteres.",
         "password_no_uppercase": "La contraseña debe contener al menos una letra mayúscula.",
         "password_no_lowercase": "La contraseña debe contener al menos una letra minúscula.",
-        "password_no_special_or_digit": "La contraseña debe contener al menos un número o símbolo especial."
+        "password_no_special_or_digit": "La contraseña debe contener al menos un número o símbolo especial.",
+        "workspace_name_empty": "El nombre del espacio no puede estar vacío.",
+        "workspace_not_found": "No se encontró el espacio de trabajo.",
+        "parent_workspace_not_found": "No se encontró la carpeta superior indicada.",
+        "workspace_cycle_detected": "No se puede mover un espacio dentro de una de sus propias subcarpetas.",
+        "cannot_move_into_deleted_workspace": "No se puede mover el contenido al mismo espacio que se va a eliminar.",
+        "destination_workspace_not_found": "No se encontró el espacio de trabajo de destino.",
+        "cannot_move_into_child_workspace": "No se puede mover el contenido dentro de una de sus propias subcarpetas."
     },
     "auth": {
         "register_success": "Registro completado con éxito. Se ha enviado un correo para verificar tu cuenta.",
@@ -95,5 +102,10 @@
         "verification_email_sent": "Se ha enviado un nuevo correo de verificación.",
         "forgot_password_email_sent": "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.",
         "password_reset_success": "Tu contraseña ha sido restablecida con éxito."
+    },
+    "workspace": {
+        "created_success": "Espacio de trabajo creado con éxito.",
+        "updated_success": "Espacio de trabajo actualizado con éxito.",
+        "deleted_success": "Espacio de trabajo eliminado con éxito."
     }
 }

@@ -16,6 +16,8 @@ from app.schemas.auth import (
     TotpSetupResponse,
     TotpStatusResponse,
     TotpVerifyRequest,
+    TotpRecoveryCodesRequest,
+    SessionListResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
@@ -30,6 +32,7 @@ from app.schemas.user import (
     UserResponse,
 )
 from app.shared.rate_limit import limit_account, limit_authenticated_request, limit_ip
+from app.shared.security import decode_access_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 security = HTTPBearer(auto_error=False)
@@ -100,6 +103,25 @@ async def logout(current_user: UserResponse = Depends(get_current_user_dep)):
     return await AuthController.logout(current_user.id)
 
 
+@router.get("/sessions", response_model=SessionListResponse)
+async def list_sessions(
+    current_user: UserResponse = Depends(get_current_user_dep),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    payload = decode_access_token(credentials.credentials) if credentials else None
+    return await AuthController.list_sessions(current_user.id, (payload or {}).get("sid"))
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_session(session_id: str, current_user: UserResponse = Depends(get_current_user_dep)):
+    return await AuthController.revoke_session(current_user.id, session_id)
+
+
+@router.delete("/sessions")
+async def revoke_all_sessions(current_user: UserResponse = Depends(get_current_user_dep)):
+    return await AuthController.revoke_all_sessions(current_user.id)
+
+
 @router.get("/totp/status", response_model=TotpStatusResponse)
 async def totp_status(request: Request, current_user: UserResponse = Depends(get_current_user_dep)):
     await limit_ip(request, "totp", limit=8, window_seconds=60)
@@ -134,6 +156,17 @@ async def totp_disable(
     await limit_ip(request, "totp", limit=8, window_seconds=60)
     await limit_account("totp", current_user.id, limit=8, window_seconds=60)
     return await AuthController.totp_disable(current_user.id, payload)
+
+
+@router.post("/totp/recovery-codes", response_model=TotpStatusResponse)
+async def regenerate_totp_recovery_codes(
+    payload: TotpRecoveryCodesRequest,
+    request: Request,
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    await limit_ip(request, "totp", limit=8, window_seconds=60)
+    await limit_account("totp", current_user.id, limit=8, window_seconds=60)
+    return await AuthController.regenerate_totp_recovery_codes(current_user.id, payload)
 
 
 @router.put("/profile", response_model=UserActionResponse)

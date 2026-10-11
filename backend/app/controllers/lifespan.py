@@ -35,6 +35,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             [("account_deletion_status", 1), ("account_deletion_lease_until", 1)]
         )
         await db.users["rate_limits"].create_index("expires_at", expireAfterSeconds=0)
+        await db.users["sessions"].create_index("expires_at", expireAfterSeconds=0)
+        await db.users["sessions"].create_index([("user_id", 1), ("created_at", -1)])
         
         await db.notes["workspaces"].create_index([("user_id", 1), ("parent_id", 1)])
         await db.notes["workspaces"].create_index(

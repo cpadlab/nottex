@@ -89,6 +89,23 @@ creation limits are 60 notes, 20 workspaces, and 30 share changes per hour per
 user. A note can have at most 50 collaborators. Expired rate-limit records are
 removed by a MongoDB TTL index.
 
+Interactive API docs and the OpenAPI schema are disabled in production, even
+when `API_DOCS_ENABLED` is true; development can disable them with that setting.
+TOTP code attempts after a correct password are additionally limited to five
+per account per 15 minutes. Enabling TOTP returns ten one-time recovery codes;
+only their hashes are stored. Users can regenerate them after re-authenticating.
+Successful sign-ins trigger an email alert when email delivery is enabled. Login-issued JWTs have a session ID;
+users can list and revoke individual sessions or revoke them all. Tokens minted
+before session tracking was introduced remain valid until their original expiry
+(at most 12 hours); password changes, email changes, and logout still invalidate
+them through the existing token version.
+
+The account export includes profile data, owned workspaces (including icons),
+owned notes, and notes shared with the user. It is a data-copy feature rather
+than a complete privacy compliance program: the operator still needs to define
+retention/deletion periods, provide the applicable privacy notice, and manage
+backup retention and restoration separately.
+
 If another load balancer or CDN sits in front of Nginx, configure Nginx's real
 IP module for only that provider's trusted proxy ranges. Do not trust arbitrary
 client-supplied `X-Forwarded-For` values.

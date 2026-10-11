@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.schemas.user import UserResponse
@@ -50,7 +51,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    totp_code: Optional[str] = Field(default=None)
+    totp_code: Optional[str] = Field(default=None, min_length=6, max_length=64)
 
     @field_validator("email", mode="before")
     @classmethod
@@ -65,6 +66,7 @@ class AuthResponse(BaseModel):
     token_type: str = "bearer"
     user: Optional[UserResponse] = None
     requires_totp: bool = False
+    session_id: Optional[str] = None
     message: str = "auth.register_success"
 
 
@@ -84,6 +86,23 @@ class TotpDisableRequest(BaseModel):
 
 class TotpStatusResponse(BaseModel):
     is_enabled: bool
+    recovery_codes: Optional[list[str]] = None
+
+
+class SessionResponse(BaseModel):
+    id: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionResponse]
+    current_session_id: Optional[str] = None
+
+
+class TotpRecoveryCodesRequest(BaseModel):
+    password: Optional[str] = None
+    code: Optional[str] = Field(default=None, min_length=6, max_length=64)
 
 
 class VerifyEmailRequest(BaseModel):

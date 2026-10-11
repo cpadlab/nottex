@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     API_PREFIX: str = "/api"
+    API_DOCS_ENABLED: bool = True
 
     HOST: str = "0.0.0.0"
     PORT: int = 8000

@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
@@ -21,6 +23,7 @@ from app.schemas.auth import (
     TotpSetupResponse,
     TotpStatusResponse,
     TotpVerifyRequest,
+    TotpRecoveryCodesRequest,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
@@ -52,8 +55,20 @@ from app.shared.security import (
     verify_password,
     verify_totp_code,
 )
+from app.shared.rate_limit import limit_account
 
 logger = get_logger(__name__)
+
+
+def _new_recovery_codes(count: int = 10) -> tuple[list[str], list[str]]:
+    codes = [secrets.token_hex(5).upper() for _ in range(count)]
+    hashes = [hashlib.sha256(code.encode("ascii")).hexdigest() for code in codes]
+    return codes, hashes
+
+
+def _hash_recovery_code(code: str) -> str:
+    normalized = "".join(char for char in code.upper() if char.isascii() and char.isalnum())
+    return hashlib.sha256(normalized.encode("ascii")).hexdigest()
 
 
 async def send_verification_email_task(
@@ -122,6 +137,20 @@ async def send_reset_password_email_task(
         )
     except Exception as e:
         logger.error("Password reset email delivery failed (%s)", type(e).__name__)
+
+
+async def send_login_alert_email_task(email: str, first_name: str, language: str = "es") -> None:
+    is_en = language.lower().startswith("en")
+    subject = f"New sign-in to {settings.APP_NAME}" if is_en else f"Nuevo inicio de sesión en {settings.APP_NAME}"
+    body = (
+        "A new sign-in to your account was completed. If this wasn't you, change your password and revoke your sessions."
+        if is_en else
+        "Se ha iniciado sesión en tu cuenta. Si no has sido tú, cambia la contraseña y revoca tus sesiones."
+    )
+    try:
+        await emailer.send_email(to=email, subject=subject, text_content=f"{first_name}\n\n{body}")
+    except Exception as exc:
+        logger.error("Login alert delivery failed (%s)", type(exc).__name__)
 
 
 async def process_resend_verification_request(email: str) -> None:
@@ -563,6 +592,20 @@ class AuthController:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        session_id = payload.get("sid")
+        if session_id:
+            session = await db.users["sessions"].find_one({
+                "_id": session_id,
+                "user_id": user_id,
+                "expires_at": {"$gt": datetime.now(timezone.utc)},
+            })
+            if not session:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="error.token_invalid_or_expired",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
         if user.get("is_verified") is not True:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -618,6 +661,7 @@ class AuthController:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="error.user_not_found",
             )
+        await db.users["sessions"].delete_many({"user_id": user_id})
         return {"message": "auth.logout_success"}
 
     @staticmethod
@@ -705,6 +749,7 @@ class AuthController:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="error.invalid_or_used_token",
             )
+        await db.users["sessions"].delete_many({"user_id": user["id"]})
 
         logger.info("Password reset completed")
 
@@ -777,7 +822,16 @@ class AuthController:
                     message="auth.totp_code_required",
                 )
 
-            if not verify_totp_code(decrypt_totp_secret(totp_secret), payload.totp_code):
+            await limit_account("login_totp", user["id"], limit=5, window_seconds=900)
+            valid_totp = verify_totp_code(decrypt_totp_secret(totp_secret), payload.totp_code)
+            recovery_hash = _hash_recovery_code(payload.totp_code)
+            consumed = None
+            if not valid_totp:
+                consumed = await users_collection.update_one(
+                    {"_id": user["_id"], "totp_recovery_codes": recovery_hash},
+                    {"$pull": {"totp_recovery_codes": recovery_hash}},
+                )
+            if not valid_totp and (consumed is None or consumed.modified_count != 1):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="error.invalid_totp_code",
@@ -790,9 +844,20 @@ class AuthController:
         )
 
         user_id = user["id"]
+        session_id = uuid.uuid4().hex
+        expires_at = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        await db.users["sessions"].insert_one({
+            "_id": session_id,
+            "user_id": user_id,
+            "created_at": now,
+            "expires_at": expires_at,
+        })
         access_token = create_access_token(
-            data={"sub": user_id, "email": user["email"], "ver": user.get("token_version", 0)}
+            data={"sub": user_id, "email": user["email"], "ver": user.get("token_version", 0), "sid": session_id}
         )
+        asyncio.create_task(send_login_alert_email_task(
+            user["email"], user.get("first_name", ""), user.get("language", "es")
+        ))
 
         user_response = UserResponse(
             id=user_id,
@@ -812,6 +877,7 @@ class AuthController:
             token_type="bearer",
             user=user_response,
             requires_totp=False,
+            session_id=session_id,
             message="auth.login_success",
         )
 
@@ -835,6 +901,8 @@ class AuthController:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="error.user_not_found",
             )
+        if user.get("is_totp_enabled"):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="error.totp_already_enabled")
 
         secret = generate_totp_secret()
         uri = get_totp_uri(secret=secret, email=user["email"])
@@ -890,14 +958,16 @@ class AuthController:
                 detail="error.invalid_totp_code",
             )
 
+        recovery_codes, recovery_hashes = _new_recovery_codes()
         now = datetime.now(timezone.utc)
         result = await users_collection.update_one(
-            {"_id": user_id, "pending_totp_secret": pending_secret_encrypted},
+            {"_id": user_id, "pending_totp_secret": pending_secret_encrypted, "is_totp_enabled": {"$ne": True}},
             {
                 "$set": {
                     "is_totp_enabled": True,
                     "totp_secret": pending_secret_encrypted,
                     "pending_totp_secret": None,
+                    "totp_recovery_codes": recovery_hashes,
                     "updated_at": now,
                 }
             },
@@ -906,7 +976,7 @@ class AuthController:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.no_pending_totp_setup")
 
         logger.info("TOTP 2FA enabled")
-        return TotpStatusResponse(is_enabled=True)
+        return TotpStatusResponse(is_enabled=True, recovery_codes=recovery_codes)
 
     @staticmethod
     async def totp_disable(user_id: str, payload: TotpDisableRequest) -> TotpStatusResponse:
@@ -954,10 +1024,13 @@ class AuthController:
                     "is_totp_enabled": False,
                     "totp_secret": None,
                     "pending_totp_secret": None,
+                    "totp_recovery_codes": [],
                     "updated_at": now,
-                }
+                },
+                "$inc": {"token_version": 1},
             },
         )
+        await db.users["sessions"].delete_many({"user_id": user_id})
 
         logger.info("TOTP 2FA disabled")
         return TotpStatusResponse(is_enabled=False)
@@ -982,6 +1055,54 @@ class AuthController:
             )
 
         return TotpStatusResponse(is_enabled=user.get("is_totp_enabled", False))
+
+    @staticmethod
+    async def regenerate_totp_recovery_codes(user_id: str, payload: TotpRecoveryCodesRequest) -> TotpStatusResponse:
+        users = db.users["users"]
+        user = await users.find_one({"_id": user_id})
+        if not user or not user.get("is_totp_enabled"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.totp_not_enabled")
+        authenticated_with_password = bool(payload.password and verify_password(payload.password, user.get("hashed_password", "")))
+        authenticated = authenticated_with_password
+        if not authenticated and payload.code and user.get("totp_secret"):
+            authenticated = verify_totp_code(decrypt_totp_secret(user["totp_secret"]), payload.code)
+        if not authenticated:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="error.totp_disable_auth_failed")
+        codes, hashes = _new_recovery_codes()
+        selector = {"_id": user_id, "is_totp_enabled": True}
+        if authenticated_with_password:
+            selector["hashed_password"] = user["hashed_password"]
+        else:
+            selector["totp_secret"] = user["totp_secret"]
+        result = await users.update_one(selector, {"$set": {"totp_recovery_codes": hashes}})
+        if result.modified_count != 1:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="error.totp_disable_auth_failed")
+        return TotpStatusResponse(is_enabled=True, recovery_codes=codes)
+
+    @staticmethod
+    async def list_sessions(user_id: str, current_session_id: Optional[str] = None) -> dict:
+        now = datetime.now(timezone.utc)
+        cursor = db.users["sessions"].find(
+            {"user_id": user_id, "expires_at": {"$gt": now}},
+            {"_id": 1, "created_at": 1, "expires_at": 1},
+        ).sort("created_at", -1)
+        sessions = []
+        async for session in cursor:
+            sessions.append({"id": session["_id"], "created_at": session["created_at"], "expires_at": session["expires_at"]})
+        return {"sessions": sessions, "current_session_id": current_session_id}
+
+    @staticmethod
+    async def revoke_session(user_id: str, session_id: str) -> dict:
+        result = await db.users["sessions"].delete_one({"_id": session_id, "user_id": user_id})
+        if not result.deleted_count:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="error.session_not_found")
+        return {"message": "auth.session_revoked"}
+
+    @staticmethod
+    async def revoke_all_sessions(user_id: str) -> dict:
+        await db.users["users"].update_one({"_id": user_id}, {"$inc": {"token_version": 1}})
+        await db.users["sessions"].delete_many({"user_id": user_id})
+        return {"message": "auth.sessions_revoked"}
 
     @staticmethod
     async def update_profile(user_id: str, payload: UpdateProfileRequest) -> UserActionResponse:
@@ -1094,6 +1215,7 @@ class AuthController:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="error.invalid_current_password",
             )
+        await db.users["sessions"].delete_many({"user_id": user_id})
 
         asyncio.create_task(
             send_password_changed_email_task(
@@ -1190,6 +1312,8 @@ class AuthController:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="error.email_already_registered",
             )
+
+        await db.users["sessions"].delete_many({"user_id": user_id})
 
         asyncio.create_task(
             send_email_changed_email_task(
@@ -1411,6 +1535,7 @@ class AuthController:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
 
         user_id = user["_id"]
+        await db.users["sessions"].delete_many({"user_id": user_id})
         try:
             deleted_user = await process_account_deletion(user_id)
         except Exception as exc:
@@ -1443,7 +1568,7 @@ class AuthController:
     @staticmethod
     async def export_user_data(user_id: str) -> dict:
         """
-        Exports all user profile data, workspaces, and notes for GDPR compliance and data backup.
+        Exports the account data currently exposed by this endpoint.
         """
         if not db.is_connected:
             raise HTTPException(
@@ -1483,6 +1608,7 @@ class AuthController:
                 "id": ws["id"],
                 "name": ws["name"],
                 "color": ws.get("color"),
+                "icon": ws.get("icon"),
                 "parent_id": ws.get("parent_id"),
                 "created_at": ws.get("created_at").isoformat() if ws.get("created_at") else None,
                 "updated_at": ws.get("updated_at").isoformat() if ws.get("updated_at") else None,
@@ -1516,8 +1642,16 @@ class AuthController:
                 "id": sn["id"],
                 "title": sn.get("title", ""),
                 "content": sn.get("content", ""),
+                "color": sn.get("color"),
+                "is_pinned": sn.get("is_pinned", False),
+                "is_trashed": sn.get("is_trashed", False),
+                "workspace_id": sn.get("workspace_id"),
                 "owner_id": sn.get("user_id"),
                 "tags": sn.get("tags", []),
+                "is_public": sn.get("is_public", False),
+                "collaborators": sn.get("collaborators", []),
+                "created_at": sn.get("created_at").isoformat() if sn.get("created_at") else None,
+                "updated_at": sn.get("updated_at").isoformat() if sn.get("updated_at") else None,
             })
 
         export_payload = {

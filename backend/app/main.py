@@ -11,9 +11,13 @@ from app.shared.request_limits import RequestBodyLimitMiddleware
 
 logger = get_logger(__name__)
 
+docs_enabled = settings.API_DOCS_ENABLED and settings.ENVIRONMENT.lower() != "production"
 api = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
+    docs_url="/docs" if docs_enabled else None,
+    redoc_url="/redoc" if docs_enabled else None,
+    openapi_url="/openapi.json" if docs_enabled else None,
     generate_unique_id_function=lambda route: route.name,
     lifespan=lifespan,
 )

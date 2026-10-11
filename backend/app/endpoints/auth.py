@@ -4,9 +4,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.controllers.auth import AuthController
 from app.schemas.auth import (
     AuthResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     RegisterRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
@@ -29,6 +33,16 @@ async def verify_email(payload: VerifyEmailRequest):
 @router.post("/resend-verification", response_model=ResendVerificationResponse)
 async def resend_verification(payload: ResendVerificationRequest):
     return await AuthController.resend_verification(payload)
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(payload: ForgotPasswordRequest):
+    return await AuthController.forgot_password(payload)
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+async def reset_password(payload: ResetPasswordRequest):
+    return await AuthController.reset_password(payload)
 
 
 @router.get("/me", response_model=UserResponse)

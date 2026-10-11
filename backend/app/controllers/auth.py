@@ -9,9 +9,13 @@ from pymongo.errors import DuplicateKeyError
 from app.core.config import settings
 from app.schemas.auth import (
     AuthResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     RegisterRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
@@ -61,6 +65,70 @@ async def send_verification_email_task(
         )
     except Exception as e:
         logger.error(f"Error sending verification email to {email}: {e}")
+
+
+async def send_reset_password_email_task(
+    email: str,
+    first_name: str,
+    token: str,
+    language: str = "es",
+) -> None:
+    """
+    Background worker task to dispatch password reset email based on user language.
+    """
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    is_en = language.lower().startswith("en")
+    template_name = "en/reset_password.html" if is_en else "es/reset_password.html"
+    subject = (
+        f"Reset your {settings.APP_NAME} password"
+        if is_en
+        else f"Restablece tu contraseña en {settings.APP_NAME}"
+    )
+
+    try:
+        await emailer.send_email(
+            to=email,
+            subject=subject,
+            template_name=template_name,
+            context={
+                "app_name": settings.APP_NAME,
+                "first_name": first_name.capitalize(),
+                "reset_url": reset_url,
+                "token": token,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error sending password reset email to {email}: {e}")
+
+
+async def send_password_changed_email_task(
+    email: str,
+    first_name: str,
+    language: str = "es",
+) -> None:
+    """
+    Background worker task to notify user that their password was changed.
+    """
+    is_en = language.lower().startswith("en")
+    template_name = "en/password_changed.html" if is_en else "es/password_changed.html"
+    subject = (
+        f"Your {settings.APP_NAME} password was changed"
+        if is_en
+        else f"Tu contraseña en {settings.APP_NAME} ha sido cambiada"
+    )
+
+    try:
+        await emailer.send_email(
+            to=email,
+            subject=subject,
+            template_name=template_name,
+            context={
+                "app_name": settings.APP_NAME,
+                "first_name": first_name.capitalize(),
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error sending password changed email to {email}: {e}")
 
 
 class AuthController:
@@ -350,5 +418,139 @@ class AuthController:
         Returns the profile of the currently authenticated user.
         """
         return await AuthController.get_current_user(token)
+
+    @staticmethod
+    async def forgot_password(payload: ForgotPasswordRequest) -> ForgotPasswordResponse:
+        """
+        Initiates password recovery:
+        - Checks database connection
+        - Finds user by normalized email
+        - Enforces rate limiting cooldown (15 minutes between recovery requests)
+        - Generates temporal reset token (expires in 60 minutes)
+        - Dispatches localized email with reset link in background via asyncio
+        - Returns success message without leaking existence for security
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"email": payload.email})
+
+        if not user:
+            return ForgotPasswordResponse(
+                message="auth.forgot_password_email_sent",
+            )
+
+        last_requested = user.get("password_reset_sent_at")
+        if last_requested:
+            if last_requested.tzinfo is None:
+                last_requested = last_requested.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            elapsed = now - last_requested
+            cooldown = timedelta(minutes=settings.PASSWORD_RESET_COOLDOWN_MINUTES)
+            if elapsed < cooldown:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="error.resend_cooldown_active",
+                )
+
+        now = datetime.now(timezone.utc)
+        token = generate_verification_token()
+        token_expires_at = now + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "password_reset_token": token,
+                    "password_reset_token_expires_at": token_expires_at,
+                    "password_reset_sent_at": now,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        first_name = user.get("first_name", "")
+        language = user.get("language", "es")
+        asyncio.create_task(
+            send_reset_password_email_task(
+                email=payload.email,
+                first_name=first_name,
+                token=token,
+                language=language,
+            )
+        )
+
+        return ForgotPasswordResponse(
+            message="auth.forgot_password_email_sent",
+        )
+
+    @staticmethod
+    async def reset_password(payload: ResetPasswordRequest) -> ResetPasswordResponse:
+        """
+        Completes password reset:
+        - Validates reset token existence and expiry
+        - Hashes new password with Argon2id
+        - Invalidates the reset token
+        - Updates password in database
+        - Dispatches confirmation email to notify user that password has changed
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"password_reset_token": payload.token})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_or_used_token",
+            )
+
+        expires_at = user.get("password_reset_token_expires_at")
+        if expires_at:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > expires_at:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="error.token_expired",
+                )
+
+        hashed_pwd = hash_password(payload.new_password)
+        now = datetime.now(timezone.utc)
+
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "hashed_password": hashed_pwd,
+                    "password_reset_token": None,
+                    "password_reset_token_expires_at": None,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        logger.info(f"Password reset successfully for user: {user.get('email')}")
+
+        first_name = user.get("first_name", "")
+        language = user.get("language", "es")
+        asyncio.create_task(
+            send_password_changed_email_task(
+                email=user["email"],
+                first_name=first_name,
+                language=language,
+            )
+        )
+
+        return ResetPasswordResponse(
+            message="auth.password_reset_success",
+        )
 
 

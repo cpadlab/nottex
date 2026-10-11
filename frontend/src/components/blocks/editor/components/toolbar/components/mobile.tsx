@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectTrigger, SelectItem, SelectSeparator } from '@/components/ui/select'
-import { AlignLeftIcon, AlignRightIcon, BaselineIcon, CodeXmlIcon, EllipsisIcon, ImageIcon, LinkIcon, PaintRollerIcon, QuoteIcon, SubscriptIcon, SuperscriptIcon, TextAlignCenterIcon, TextAlignJustifyIcon, type LucideIcon } from 'lucide-react'
+import { AlignLeftIcon, AlignRightIcon, BaselineIcon, CodeXmlIcon, EllipsisIcon, ImageIcon, PaintRollerIcon, QuoteIcon, SubscriptIcon, SuperscriptIcon, TextAlignCenterIcon, TextAlignJustifyIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Fragment } from 'react/jsx-runtime'
 import { useEditorContext } from '@/contexts/editor-context'
@@ -40,7 +40,6 @@ export const MobileSelect = () => {
         onBaseline,
         isPaintRoller,
         onPaintRoller,
-        onLink,
         onImage,
         isCompact,
     } = useEditorContext()
@@ -48,12 +47,6 @@ export const MobileSelect = () => {
     const mod = getModifierKey()
 
     const items: SelectItemConfig[] = [
-        { 
-            icon: LinkIcon, 
-            label: "editor.toolbar.link",
-            value: "link",
-            onClick: () => onLink(),
-        },
         { 
             icon: ImageIcon, 
             label: "editor.toolbar.image",

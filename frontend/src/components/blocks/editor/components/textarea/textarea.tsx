@@ -60,15 +60,34 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         })
     }, [editorRef])
 
+    const syncLinks = useCallback(() => {
+        if (!editorRef.current) return
+        const links = editorRef.current.querySelectorAll<HTMLAnchorElement>('a')
+        links.forEach((a) => {
+            if (a.target !== '_blank') {
+                a.target = '_blank'
+            }
+            if (a.rel !== 'noopener noreferrer') {
+                a.rel = 'noopener noreferrer'
+            }
+            const text = a.textContent || ''
+            if (text.length > 103 && !text.endsWith('...')) {
+                a.textContent = text.slice(0, 100) + '...'
+            }
+        })
+    }, [editorRef])
+
     useEffect(() => {
         syncCheckboxContainers()
         syncCodeBlockContainers()
+        syncLinks()
         const editor = editorRef.current
         if (!editor) return
 
         const observer = new MutationObserver(() => {
             syncCheckboxContainers()
             syncCodeBlockContainers()
+            syncLinks()
         })
 
         observer.observe(editor, {
@@ -79,10 +98,63 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
         return () => {
             observer.disconnect()
         }
-    }, [syncCheckboxContainers, syncCodeBlockContainers, editorRef])
+    }, [syncCheckboxContainers, syncCodeBlockContainers, syncLinks, editorRef])
+
+    const handlePaste = useCallback(
+        (e: React.ClipboardEvent<HTMLDivElement>) => {
+            const clipboardText = e.clipboardData.getData('text/plain').trim()
+            const urlPattern = /^(https?:\/\/[^\s]+|www\.[^\s]+)$/i
+
+            if (urlPattern.test(clipboardText)) {
+                e.preventDefault()
+                const href = clipboardText.startsWith('www.')
+                    ? `https://${clipboardText}`
+                    : clipboardText
+                const selection = window.getSelection()
+                const selectedText = selection?.toString().trim() || ''
+
+                const a = document.createElement('a')
+                a.href = href
+                a.target = '_blank'
+                a.rel = 'noopener noreferrer'
+
+                const rawText = selectedText.length > 0 ? selectedText : clipboardText
+                a.textContent = rawText.length > 100 ? rawText.slice(0, 100) + '...' : rawText
+
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0)
+                    range.deleteContents()
+                    range.insertNode(a)
+
+                    const space = document.createTextNode('\u00A0')
+                    a.after(space)
+
+                    const newRange = document.createRange()
+                    newRange.setStartAfter(space)
+                    newRange.collapse(true)
+                    selection.removeAllRanges()
+                    selection.addRange(newRange)
+                }
+
+                handleInput()
+                return
+            }
+        },
+        [handleInput]
+    )
 
     const handleClick = useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.target as HTMLElement
+            const anchor = target.closest('a')
+            if (anchor && anchor.href) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault()
+                    window.open(anchor.href, '_blank', 'noopener,noreferrer')
+                    return
+                }
+            }
+
             if (e.target === editorRef.current && editorRef.current) {
                 const lastChild = editorRef.current.lastElementChild
                 if (
@@ -110,7 +182,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
     return (
         <>
         
-            <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder={placeholder ?? defaultPlaceholder} onInput={handleInput} onKeyDown={handleKeyDown} onKeyUp={handleSelectionChange} onMouseUp={handleSelectionChange} onClick={handleClick}
+            <div ref={editorRef} contentEditable suppressContentEditableWarning data-placeholder={placeholder ?? defaultPlaceholder} onInput={handleInput} onKeyDown={handleKeyDown} onKeyUp={handleSelectionChange} onMouseUp={handleSelectionChange} onClick={handleClick} onPaste={handlePaste}
                 className={cn(
                     "w-full scroll-fade flex-1 min-w-full min-h-0 overflow-y-auto outline-none resize-none scrollbar-none",
                     "[&_p]:text-base [&_p]:leading-relaxed [&_p]:my-1.5",
@@ -138,6 +210,7 @@ export const EditorTextarea = ({ className, placeholder, ...props }: EditorTexta
                     "[&_li[data-indent='8']]:ml-48",
                     "[&_div[data-type=code-block]]:my-3 [&_div[data-type=code-block]]:select-none [&_div[data-type=code-block]]:cursor-default",
                     "[&_blockquote]:border-l-4 [&_blockquote]:border-l-primary [&_blockquote]:bg-muted [&_blockquote]:text-muted-foreground [&_blockquote]:pl-4 [&_blockquote]:pr-3 [&_blockquote]:py-2.5 [&_blockquote]:my-3 [&_blockquote]:rounded-r-lg [&_blockquote]:italic",
+                    "[&_a]:text-blue-500 [&_a]:hover:text-blue-600 [&_a]:dark:text-blue-400 [&_a]:dark:hover:text-blue-300 [&_a]:underline [&_a]:underline-offset-2 [&_a]:cursor-pointer [&_a]:inline-flex [&_a]:items-center [&_a]:max-w-[100ch] [&_a]:truncate [&_a]:align-baseline",
                     "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
                     className
                 )}

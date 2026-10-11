@@ -5,6 +5,7 @@ from typing import Optional
 from app.core.config import settings
 from app.shared.database import db
 from app.shared.logger import get_logger
+from app.shared.account_deletion import process_account_deletion
 
 logger = get_logger(__name__)
 
@@ -70,26 +71,43 @@ class TokenCleanupService:
         from datetime import timedelta
 
         unverified_threshold = now - timedelta(days=settings.UNVERIFIED_USER_RETENTION_DAYS)
-        unverified_users_cursor = users_col.find(
+        unverified_res = await users_col.update_many(
             {
                 "is_verified": False,
                 "created_at": {"$lt": unverified_threshold},
+                "account_deletion_status": {"$nin": ["pending", "processing"]},
             },
-            {"_id": 1, "email": 1},
+            {
+                "$set": {
+                    "account_deletion_status": "pending",
+                    "account_deletion_stage": "queued",
+                    "account_deletion_reason": "unverified_retention",
+                    "account_deletion_requested_at": now,
+                    "account_deletion_attempts": 0,
+                    "account_deletion_last_error": None,
+                }
+            },
         )
-        unverified_ids = [doc["_id"] async for doc in unverified_users_cursor]
+
         unverified_deleted_count = 0
-        if unverified_ids:
-            workspaces_col = db.notes["workspaces"]
-            notes_col = db.notes["notes"]
-            await workspaces_col.delete_many({"user_id": {"$in": unverified_ids}})
-            await notes_col.delete_many({"user_id": {"$in": unverified_ids}})
-            await notes_col.update_many(
-                {"collaborators.user_id": {"$in": unverified_ids}},
-                {"$pull": {"collaborators": {"user_id": {"$in": unverified_ids}}}},
-            )
-            unverif_res = await users_col.delete_many({"_id": {"$in": unverified_ids}})
-            unverified_deleted_count = unverif_res.deleted_count
+        pending_query = {
+            "account_deletion_status": {"$in": ["pending", "processing"]},
+            "$or": [
+                {"account_deletion_lease_until": {"$exists": False}},
+                {"account_deletion_lease_until": None},
+                {"account_deletion_lease_until": {"$lt": now}},
+            ],
+        }
+        pending_cursor = users_col.find(pending_query, {"_id": 1})
+        async for deletion_job in pending_cursor:
+            try:
+                completed = await process_account_deletion(deletion_job["_id"])
+                if completed and completed.get("account_deletion_reason") == "unverified_retention":
+                    unverified_deleted_count += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                continue
 
         trash_threshold = now - timedelta(days=settings.TRASH_RETENTION_DAYS)
         notes_col = db.notes["notes"]
@@ -123,6 +141,10 @@ class TokenCleanupService:
             "password_reset_cleaned": reset_result.modified_count,
             "delete_account_cleaned": delete_result.modified_count,
             "unverified_users_purged": unverified_deleted_count,
+            "unverified_users_queued": unverified_res.modified_count,
+            "account_deletion_jobs_pending": await users_col.count_documents(
+                {"account_deletion_status": {"$in": ["pending", "processing"]}}
+            ),
             "trash_notes_purged": trash_res.deleted_count,
         }
 

@@ -106,6 +106,8 @@
         "cannot_share_with_yourself": "No puedes compartir una nota contigo mismo.",
         "invalid_credentials": "Las credenciales introducidas no son correctas.",
         "email_not_verified": "Verifica tu correo electrónico antes de iniciar sesión.",
+        "account_deletion_in_progress": "La eliminación de tu cuenta está en curso y no puedes usarla.",
+        "account_deletion_queued_for_retry": "La eliminación quedó pendiente y se reintentará automáticamente.",
         "invalid_password": "La contraseña introducida es incorrecta.",
         "invalid_current_password": "La contraseña actual es incorrecta.",
         "email_same_as_current": "El nuevo correo electrónico no puede ser igual al actual.",

@@ -35,6 +35,7 @@ from app.schemas.user import (
     UserResponse,
 )
 from app.shared.database import db
+from app.shared.account_deletion import process_account_deletion
 from app.shared.emailer import emailer
 from app.shared.logger import get_logger
 from app.shared.security import (
@@ -534,6 +535,12 @@ class AuthController:
                 detail="error.email_not_verified",
             )
 
+        if user.get("account_deletion_status") in {"pending", "processing"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="error.account_deletion_in_progress",
+            )
+
         return UserResponse(
             id=user["id"],
             email=user["email"],
@@ -749,6 +756,12 @@ class AuthController:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="error.email_not_verified",
+            )
+
+        if user.get("account_deletion_status") in {"pending", "processing"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="error.account_deletion_in_progress",
             )
 
         is_totp_enabled = user.get("is_totp_enabled", False)
@@ -1375,38 +1388,51 @@ class AuthController:
                 "delete_account_token": token_hash,
                 "delete_account_token_expires_at": {"$gt": now},
             },
-            {"$set": {"delete_account_token": None, "delete_account_token_expires_at": None}},
+            {
+                "$set": {
+                    "delete_account_token": None,
+                    "delete_account_token_expires_at": None,
+                    "account_deletion_status": "pending",
+                    "account_deletion_stage": "queued",
+                    "account_deletion_reason": "user_requested",
+                    "account_deletion_requested_at": now,
+                    "account_deletion_attempts": 0,
+                    "account_deletion_last_error": None,
+                }
+            },
             return_document=False,
         )
         if not user:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="error.invalid_or_used_token")
 
         user_id = user["_id"]
-        email = user["email"]
+        try:
+            deleted_user = await process_account_deletion(user_id)
+        except Exception as exc:
+            logger.error(
+                "Account deletion queued for retry after an incomplete cascade",
+                extra={"user_id": user_id},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.account_deletion_queued_for_retry",
+            ) from exc
 
-        workspaces_col = db.notes["workspaces"]
-        notes_col = db.notes["notes"]
-
-        await workspaces_col.delete_many({"user_id": user_id})
-
-        await notes_col.delete_many({"user_id": user_id})
-
-        await notes_col.update_many(
-            {"collaborators.user_id": user_id},
-            {"$pull": {"collaborators": {"user_id": user_id}}},
-        )
-
-        await users_collection.delete_one({"_id": user_id})
+        if not deleted_user:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.account_deletion_queued_for_retry",
+            )
 
         asyncio.create_task(
             send_account_deleted_email_task(
-                email=email,
-                first_name=user.get("first_name", ""),
-                language=user.get("language", "es"),
+                email=deleted_user["email"],
+                first_name=deleted_user.get("first_name", ""),
+                language=deleted_user.get("language", "es"),
             )
         )
 
-        logger.info(f"Account permanently cascade deleted for user {email} (id: {user_id})")
+        logger.info(f"Account permanently cascade deleted for user {deleted_user['email']} (id: {user_id})")
 
         return UserActionResponse(
             message="user.account_deleted_success",

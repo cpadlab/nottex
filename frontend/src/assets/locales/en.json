@@ -106,6 +106,8 @@
         "cannot_share_with_yourself": "You cannot share a note with yourself.",
         "invalid_credentials": "The credentials provided are invalid.",
         "email_not_verified": "Verify your email address before signing in.",
+        "account_deletion_in_progress": "Your account deletion is in progress, so the account cannot be used.",
+        "account_deletion_queued_for_retry": "Account deletion is pending and will be retried automatically.",
         "invalid_password": "The password provided is incorrect.",
         "invalid_current_password": "The current password provided is incorrect.",
         "email_same_as_current": "The new email address cannot be the same as your current email.",

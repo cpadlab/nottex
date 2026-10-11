@@ -1,14 +1,17 @@
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { SubscriptIcon, SuperscriptIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useEditorContext } from '@/contexts/editor-context'
+import { getModifierKey } from '@/hooks/use-keybindings'
 
 export interface FormatButton {
     icon: LucideIcon
     label: string
     isActive: boolean
+    shortcut: string[]
     onClick: () => void
 }
 
@@ -22,17 +25,21 @@ export const ScriptStyleButtons = () => {
         onSubscript,
     } = useEditorContext()
 
+    const mod = getModifierKey()
+
     const buttons: FormatButton[] = [
         { 
             icon: SuperscriptIcon, 
             label: "editor.toolbar.superscript",
             isActive: isSuperscript,
+            shortcut: [mod, "."],
             onClick: onSuperscript,
         },
         { 
             icon: SubscriptIcon, 
             label: "editor.toolbar.subscript",
             isActive: isSubscript,
+            shortcut: [mod, ","],
             onClick: onSubscript,
         },
     ]
@@ -47,8 +54,13 @@ export const ScriptStyleButtons = () => {
                         <item.icon />
                     </TooltipTrigger>
                     
-                    <TooltipContent>
-                        <p>{translation(item.label)}</p>
+                    <TooltipContent className="flex items-center">
+                        <span>{translation(item.label)}</span>
+                        <KbdGroup>
+                            {item.shortcut.map((key) => (
+                                <Kbd key={key}>{key}</Kbd>
+                            ))}
+                        </KbdGroup>
                     </TooltipContent>
                 
                 </Tooltip>

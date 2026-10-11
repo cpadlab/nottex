@@ -1,31 +1,18 @@
 import { Select, SelectContent, SelectTrigger, SelectItem, SelectSeparator } from '@/components/ui/select'
-import {
-    AlignLeftIcon,
-    AlignRightIcon,
-    BaselineIcon,
-    CodeXmlIcon,
-    EllipsisIcon,
-    ImageIcon,
-    LinkIcon,
-    PaintRollerIcon,
-    QuoteIcon,
-    SubscriptIcon,
-    SuperscriptIcon,
-    TextAlignCenterIcon,
-    TextAlignJustifyIcon,
-    VideoIcon,
-    type LucideIcon,
-} from 'lucide-react'
+import { AlignLeftIcon, AlignRightIcon, BaselineIcon, CodeXmlIcon, EllipsisIcon, ImageIcon, LinkIcon, PaintRollerIcon, QuoteIcon, SubscriptIcon, SuperscriptIcon, TextAlignCenterIcon, TextAlignJustifyIcon, VideoIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Fragment } from 'react/jsx-runtime'
 import { useEditorContext } from '@/contexts/editor-context'
 import { cn } from 'cn'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
+import { getModifierKey } from '@/hooks/use-keybindings'
 
 export interface SelectItemConfig {
     label: string
     icon: LucideIcon
     value: string
     isActive?: boolean
+    shortcut?: string[]
     onClick: () => void
 }
 
@@ -58,6 +45,8 @@ export const MobileSelect = () => {
         onVideo,
         isCompact,
     } = useEditorContext()
+
+    const mod = getModifierKey()
 
     const items: SelectItemConfig[] = [
         { 
@@ -97,6 +86,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.alignleft", 
             value: "align_left",
             isActive: isAlignLeft,
+            shortcut: [mod, "Shift", "L"],
             onClick: onAlignLeft,
         },
         { 
@@ -104,6 +94,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.aligncenter", 
             value: "align_center",
             isActive: isAlignCenter,
+            shortcut: [mod, "Shift", "E"],
             onClick: onAlignCenter,
         },
         { 
@@ -111,6 +102,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.alignright", 
             value: "align_right",
             isActive: isAlignRight,
+            shortcut: [mod, "Shift", "R"],
             onClick: onAlignRight,
         },
         { 
@@ -118,6 +110,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.alignjustify", 
             value: "align_justify",
             isActive: isAlignJustify,
+            shortcut: [mod, "Shift", "J"],
             onClick: onAlignJustify,
         },
         { 
@@ -125,6 +118,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.superscript",
             value: "superscript",
             isActive: isSuperscript,
+            shortcut: [mod, "."],
             onClick: onSuperscript,
         },
         { 
@@ -132,6 +126,7 @@ export const MobileSelect = () => {
             label: "editor.toolbar.subscript",
             value: "subscript",
             isActive: isSubscript,
+            shortcut: [mod, ","],
             onClick: onSubscript,
         },
         { 
@@ -156,7 +151,10 @@ export const MobileSelect = () => {
         isSuperscript ||
         isSubscript ||
         isPaintRoller ||
-        isBaseline
+        isBaseline ||
+        isAlignCenter ||
+        isAlignRight ||
+        isAlignJustify
     )
 
     const handleValueChange = (val: string | null) => {
@@ -172,7 +170,7 @@ export const MobileSelect = () => {
                 <EllipsisIcon />
             </SelectTrigger>
         
-            <SelectContent className="w-auto">
+            <SelectContent className="w-auto min-w-[240px]">
                 {items.map((item, index) => {
                     return (
                         <Fragment key={item.value}>
@@ -180,9 +178,20 @@ export const MobileSelect = () => {
                                 <SelectSeparator />
                             )}
                             <SelectItem
-                                className={cn("cursor-pointer flex items-center gap-2", item.isActive && "bg-secondary/70 text-secondary-foreground font-medium" )} value={item.value}>
-                                <item.icon />
-                                <span>{translation(item.label)}</span>
+                                className={cn("cursor-pointer", item.isActive && "bg-secondary/70 text-secondary-foreground font-medium" )} value={item.value}>
+                                <div className="flex items-center justify-between w-full gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <item.icon />
+                                        <span>{translation(item.label)}</span>
+                                    </div>
+                                    {item.shortcut && (
+                                        <KbdGroup>
+                                            {item.shortcut.map((key) => (
+                                                <Kbd key={key}>{key}</Kbd>
+                                            ))}
+                                        </KbdGroup>
+                                    )}
+                                </div>
                             </SelectItem>
                         </Fragment>
                     )

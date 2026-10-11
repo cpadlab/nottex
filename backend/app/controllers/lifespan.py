@@ -1,0 +1,31 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+from app.shared.logger import get_logger
+from app.shared.database import db
+from app.core.config import settings
+
+logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Handles application startup and shutdown lifecycle events.
+    Initializes database connection pool on startup and closes it on shutdown.
+    """
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} [{settings.ENVIRONMENT}]...")
+    
+    try:
+        await db.connect()
+    except Exception as e:
+        logger.warning(f"Database connection failed during startup: {e}. Continuing in degraded mode.")
+
+    yield
+
+    logger.info(f"Shutting down {settings.APP_NAME}...")
+    try:
+        db.close()
+    except Exception as e:
+        logger.error(f"Error while closing database connection: {e}")

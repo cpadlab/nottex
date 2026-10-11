@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>A note has been shared with you</title>
+
+</head>
+<body>
+  
+    <h1>{{ shared_by_name }} shared a note with you on {{ app_name }}</h1>
+    <p>Hello {{ recipient_name }},</p>
+    <p>User <strong>{{ shared_by_name }}</strong> has granted you <strong>{{ permission_label }}</strong> access to the note: <strong>"{{ note_title }}"</strong>.</p>
+    
+    <p>
+        <a href="{{ note_url }}">
+            <button type="button">Open note</button>
+        </a>
+    </p>
+    
+    <p>If the button doesn't work, access it using this link:</p>
+    <p><a href="{{ note_url }}">{{ note_url }}</a></p>
+
+</body>
+</html>

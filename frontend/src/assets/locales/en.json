@@ -93,7 +93,14 @@
         "workspace_cycle_detected": "Cannot move a workspace into one of its own subfolders.",
         "cannot_move_into_deleted_workspace": "Cannot move items into the workspace being deleted.",
         "destination_workspace_not_found": "Destination workspace not found.",
-        "cannot_move_into_child_workspace": "Cannot move items into one of its own subfolders."
+        "cannot_move_into_child_workspace": "Cannot move items into one of its own subfolders.",
+        "note_not_found": "Note not found.",
+        "note_access_denied": "You do not have permission to view this note.",
+        "note_write_access_denied": "You do not have permission to edit this note.",
+        "only_owner_can_delete_note": "Only the note owner can delete this note.",
+        "only_owner_can_share_note": "Only the note owner can manage collaborators.",
+        "collaborator_user_not_found": "User with that email is not registered in Nottex.",
+        "cannot_share_with_yourself": "You cannot share a note with yourself."
     },
     "auth": {
         "register_success": "Registration successful. A verification email has been sent.",
@@ -107,5 +114,11 @@
         "created_success": "Workspace created successfully.",
         "updated_success": "Workspace updated successfully.",
         "deleted_success": "Workspace deleted successfully."
+    },
+    "note_messages": {
+        "created_success": "Note created successfully.",
+        "updated_success": "Note updated successfully.",
+        "deleted_success": "Note deleted successfully.",
+        "shared_success": "Note shared successfully."
     }
 }

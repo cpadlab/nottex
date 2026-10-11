@@ -93,7 +93,14 @@
         "workspace_cycle_detected": "No se puede mover un espacio dentro de una de sus propias subcarpetas.",
         "cannot_move_into_deleted_workspace": "No se puede mover el contenido al mismo espacio que se va a eliminar.",
         "destination_workspace_not_found": "No se encontró el espacio de trabajo de destino.",
-        "cannot_move_into_child_workspace": "No se puede mover el contenido dentro de una de sus propias subcarpetas."
+        "cannot_move_into_child_workspace": "No se puede mover el contenido dentro de una de sus propias subcarpetas.",
+        "note_not_found": "No se encontró la nota.",
+        "note_access_denied": "No tienes permiso para ver esta nota.",
+        "note_write_access_denied": "No tienes permiso para editar esta nota.",
+        "only_owner_can_delete_note": "Solo el propietario puede eliminar la nota.",
+        "only_owner_can_share_note": "Solo el propietario puede gestionar los colaboradores de la nota.",
+        "collaborator_user_not_found": "El usuario con ese correo no está registrado en Nottex.",
+        "cannot_share_with_yourself": "No puedes compartir una nota contigo mismo."
     },
     "auth": {
         "register_success": "Registro completado con éxito. Se ha enviado un correo para verificar tu cuenta.",
@@ -107,5 +114,11 @@
         "created_success": "Espacio de trabajo creado con éxito.",
         "updated_success": "Espacio de trabajo actualizado con éxito.",
         "deleted_success": "Espacio de trabajo eliminado con éxito."
+    },
+    "note_messages": {
+        "created_success": "Nota creada con éxito.",
+        "updated_success": "Nota actualizada con éxito.",
+        "deleted_success": "Nota eliminada con éxito.",
+        "shared_success": "Nota compartida con éxito."
     }
 }

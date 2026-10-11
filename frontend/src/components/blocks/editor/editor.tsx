@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useContext } from 'react'
 import { Toolbar } from './components/toolbar/toolbar'
 import { EditorTextarea } from './components/textarea/textarea'
 import { EditorProvider } from '@/contexts/editor-context'
+import { NoteContext } from '@/contexts/note-context'
 import type { UseEditorOptions } from '@/hooks/use-editor'
 
 export interface EditorProps {
@@ -9,13 +10,23 @@ export interface EditorProps {
 }
 
 const Editor = ({ options }: EditorProps) => {
-    const [content, setContent] = useState('')
+    const note = useContext(NoteContext)
+    const [localContent, setLocalContent] = useState('')
+
+    const content = note ? note.content : localContent
+    const handleContentChange = (val: string) => {
+        if (note) {
+            note.setContent(val)
+        } else {
+            setLocalContent(val)
+        }
+    }
 
     return (
         <EditorProvider options={options}>
             <div className='flex flex-col gap-4 flex-1'>
                 <Toolbar />
-                <EditorTextarea className='pb-16 md:pb-0' value={content} onChange={(e) => setContent(e.target.value)} />
+                <EditorTextarea className='pb-16 md:pb-0' value={content} onChange={(e) => handleContentChange(e.target.value)} />
             </div>
         </EditorProvider>
     )

@@ -125,7 +125,10 @@
         "invalid_totp_code": "The two-factor authentication code is invalid or expired.",
         "totp_code_required": "A two-factor authentication code is required.",
         "no_pending_totp_setup": "There is no pending 2FA setup to verify.",
-        "totp_disable_auth_failed": "Incorrect password or 2FA code to disable two-factor authentication."
+        "totp_disable_auth_failed": "Incorrect password or 2FA code to disable two-factor authentication.",
+        "totp_not_enabled": "Two-factor authentication is not enabled.",
+        "totp_already_enabled": "Two-factor authentication is already enabled.",
+        "session_not_found": "That session was not found."
     },
     "auth": {
         "register_success": "Registration successful. A verification email has been sent.",
@@ -133,6 +136,8 @@
         "totp_code_required": "Please enter the 6-digit code from your authenticator app.",
         "totp_enabled_success": "Two-factor authentication enabled successfully.",
         "totp_disabled_success": "Two-factor authentication disabled successfully.",
+        "session_revoked": "Session revoked.",
+        "sessions_revoked": "All sessions have been revoked.",
         "email_verified_success": "Email address verified successfully.",
         "email_already_verified": "Email address was already verified.",
         "verification_email_sent": "A new verification email has been sent.",

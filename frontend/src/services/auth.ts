@@ -18,6 +18,8 @@ import type {
     TotpSetupResponse,
     TotpStatusResponse,
     TotpVerifyRequest,
+    TotpRecoveryCodesRequest,
+    SessionListResponse,
     UpdateProfileRequest,
     User,
     UserActionResponse,
@@ -108,6 +110,25 @@ export const authService = {
     async disableTotp(data: TotpDisableRequest): Promise<TotpStatusResponse> {
         const response = await api.post<TotpStatusResponse>("/auth/totp/disable", data);
         return response.data;
+    },
+
+    async regenerateTotpRecoveryCodes(data: TotpRecoveryCodesRequest): Promise<TotpStatusResponse> {
+        const response = await api.post<TotpStatusResponse>("/auth/totp/recovery-codes", data);
+        return response.data;
+    },
+
+    async getSessions(): Promise<SessionListResponse> {
+        const response = await api.get<SessionListResponse>("/auth/sessions");
+        return response.data;
+    },
+
+    async revokeSession(sessionId: string): Promise<void> {
+        await api.delete(`/auth/sessions/${encodeURIComponent(sessionId)}`);
+    },
+
+    async revokeAllSessions(): Promise<void> {
+        await api.delete("/auth/sessions");
+        localStorage.removeItem("access_token");
     },
 
     async requestDeleteAccount(data: RequestDeleteAccountRequest): Promise<UserActionResponse> {

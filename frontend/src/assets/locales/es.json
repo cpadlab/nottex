@@ -125,7 +125,10 @@
         "invalid_totp_code": "El código de autenticación de dos factores es inválido o ha caducado.",
         "totp_code_required": "Se requiere un código de autenticación de dos factores.",
         "no_pending_totp_setup": "No hay ninguna configuración de 2FA pendiente de verificación.",
-        "totp_disable_auth_failed": "Contraseña o código 2FA incorrecto para deshabilitar la autenticación en dos pasos."
+        "totp_disable_auth_failed": "Contraseña o código 2FA incorrecto para deshabilitar la autenticación en dos pasos.",
+        "totp_not_enabled": "La autenticación en dos pasos no está habilitada.",
+        "totp_already_enabled": "La autenticación en dos pasos ya está habilitada.",
+        "session_not_found": "No se encontró esa sesión."
     },
     "auth": {
         "register_success": "Registro completado con éxito. Se ha enviado un correo para verificar tu cuenta.",
@@ -133,6 +136,8 @@
         "totp_code_required": "Introduce el código de 6 dígitos de tu aplicación de autenticación.",
         "totp_enabled_success": "Autenticación en dos pasos habilitada con éxito.",
         "totp_disabled_success": "Autenticación en dos pasos deshabilitada con éxito.",
+        "session_revoked": "Sesión cerrada.",
+        "sessions_revoked": "Se han cerrado todas las sesiones.",
         "email_verified_success": "Correo electrónico verificado con éxito.",
         "email_already_verified": "El correo electrónico ya ha sido verificado previamente.",
         "verification_email_sent": "Se ha enviado un nuevo correo de verificación.",

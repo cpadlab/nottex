@@ -30,6 +30,7 @@ export interface AuthResponse {
     token_type?: string;
     user?: User | null;
     requires_totp?: boolean;
+    session_id?: string | null;
     message?: string;
 }
 
@@ -83,6 +84,23 @@ export interface TotpDisableRequest {
 
 export interface TotpStatusResponse {
     is_enabled: boolean;
+    recovery_codes?: string[] | null;
+}
+
+export interface Session {
+    id: string;
+    created_at: string;
+    expires_at: string;
+}
+
+export interface SessionListResponse {
+    sessions: Session[];
+    current_session_id?: string | null;
+}
+
+export interface TotpRecoveryCodesRequest {
+    password?: string;
+    code?: string;
 }
 
 export interface UpdateProfileRequest {

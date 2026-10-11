@@ -148,4 +148,12 @@ async def confirm_delete_account(payload: ConfirmDeleteAccountRequest):
     return await AuthController.confirm_delete_account(payload)
 
 
+@router.get("/account/export")
+async def export_user_data(
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    return await AuthController.export_user_data(current_user.id)
+
+
+
 

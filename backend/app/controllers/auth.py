@@ -1355,6 +1355,95 @@ class AuthController:
             message="user.account_deleted_success",
         )
 
+    @staticmethod
+    async def export_user_data(user_id: str) -> dict:
+        """
+        Exports all user profile data, workspaces, and notes for GDPR compliance and data backup.
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_col = db.users["users"]
+        workspaces_col = db.notes["workspaces"]
+        notes_col = db.notes["notes"]
+
+        user = await users_col.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        # Sanitize sensitive fields from profile
+        user_export = {
+            "id": user["id"],
+            "email": user["email"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "language": user.get("language", "es"),
+            "is_verified": user.get("is_verified", False),
+            "is_totp_enabled": user.get("is_totp_enabled", False),
+            "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
+            "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
+            "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None,
+        }
+
+        ws_cursor = workspaces_col.find({"user_id": user_id})
+        workspaces_export = []
+        async for ws in ws_cursor:
+            workspaces_export.append({
+                "id": ws["id"],
+                "name": ws["name"],
+                "color": ws.get("color"),
+                "parent_id": ws.get("parent_id"),
+                "created_at": ws.get("created_at").isoformat() if ws.get("created_at") else None,
+                "updated_at": ws.get("updated_at").isoformat() if ws.get("updated_at") else None,
+            })
+
+        notes_cursor = notes_col.find({"user_id": user_id})
+        notes_export = []
+        async for n in notes_cursor:
+            notes_export.append({
+                "id": n["id"],
+                "title": n.get("title", ""),
+                "content": n.get("content", ""),
+                "color": n.get("color"),
+                "is_pinned": n.get("is_pinned", False),
+                "is_trashed": n.get("is_trashed", False),
+                "trashed_at": n.get("trashed_at").isoformat() if n.get("trashed_at") else None,
+                "workspace_id": n.get("workspace_id"),
+                "tags": n.get("tags", []),
+                "is_public": n.get("is_public", False),
+                "collaborators": n.get("collaborators", []),
+                "created_at": n.get("created_at").isoformat() if n.get("created_at") else None,
+                "updated_at": n.get("updated_at").isoformat() if n.get("updated_at") else None,
+            })
+
+        shared_cursor = notes_col.find({"collaborators.user_id": user_id})
+        shared_export = []
+        async for sn in shared_cursor:
+            shared_export.append({
+                "id": sn["id"],
+                "title": sn.get("title", ""),
+                "content": sn.get("content", ""),
+                "owner_id": sn.get("user_id"),
+                "tags": sn.get("tags", []),
+            })
+
+        export_payload = {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "profile": user_export,
+            "workspaces": workspaces_export,
+            "notes": notes_export,
+            "shared_notes_participating": shared_export,
+        }
+
+        return export_payload
+
+
 
 
 

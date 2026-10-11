@@ -417,6 +417,38 @@ export const useEditor = (options?: UseEditorOptions) => {
             editor.focus()
         }
 
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0) {
+            let node: Node | null = selection.anchorNode
+            let todoLi: HTMLElement | null = null
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).getAttribute("data-type") === "todo-item") {
+                    todoLi = node as HTMLElement
+                    break
+                }
+                node = node.parentNode
+            }
+
+            if (todoLi) {
+                const currentLevel = parseInt(todoLi.getAttribute("data-indent") || "0", 10)
+                if (currentLevel > 0) {
+                    const newLevel = currentLevel - 1
+                    if (newLevel === 0) {
+                        todoLi.removeAttribute("data-indent")
+                    } else {
+                        todoLi.setAttribute("data-indent", newLevel.toString())
+                    }
+                    if (options?.onChange) {
+                        isInternalUpdate.current = true
+                        options.onChange(editor.innerHTML)
+                    }
+                    handleSelectionChange()
+                    options?.onIndentDecrease?.()
+                    return
+                }
+            }
+        }
+
         document.execCommand("outdent", false)
 
         if (options?.onChange) {
@@ -434,6 +466,32 @@ export const useEditor = (options?: UseEditorOptions) => {
 
         if (document.activeElement !== editor) {
             editor.focus()
+        }
+
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0) {
+            let node: Node | null = selection.anchorNode
+            let todoLi: HTMLElement | null = null
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).getAttribute("data-type") === "todo-item") {
+                    todoLi = node as HTMLElement
+                    break
+                }
+                node = node.parentNode
+            }
+
+            if (todoLi) {
+                const currentLevel = parseInt(todoLi.getAttribute("data-indent") || "0", 10)
+                const newLevel = Math.min(currentLevel + 1, 8)
+                todoLi.setAttribute("data-indent", newLevel.toString())
+                if (options?.onChange) {
+                    isInternalUpdate.current = true
+                    options.onChange(editor.innerHTML)
+                }
+                handleSelectionChange()
+                options?.onIndentIncrease?.()
+                return
+            }
         }
 
         document.execCommand("indent", false)
@@ -595,8 +653,8 @@ export const useEditor = (options?: UseEditorOptions) => {
             const li = document.createElement("li")
             li.setAttribute("data-type", "todo-item")
             li.setAttribute("data-checked", "false")
-            li.className = "flex items-start gap-2 my-1"
-            li.innerHTML = `<span data-todo-checkbox contenteditable="false" class="inline-flex items-center pt-0.5 select-none"></span><span data-todo-content class="flex-1 outline-none min-w-0">${textContent || "<br>"}</span>`
+            li.className = "flex items-start gap-2.5 my-1.5"
+            li.innerHTML = `<span data-todo-checkbox contenteditable="false" class="inline-flex items-center justify-center size-5 shrink-0 select-none pointer-events-auto"></span><span data-todo-content class="flex-1 outline-none min-w-0">${textContent || "<br>"}</span>`
 
             ul.appendChild(li)
             currentLi.replaceWith(ul)
@@ -620,8 +678,8 @@ export const useEditor = (options?: UseEditorOptions) => {
             const li = document.createElement("li")
             li.setAttribute("data-type", "todo-item")
             li.setAttribute("data-checked", "false")
-            li.className = "flex items-start gap-2 my-1"
-            li.innerHTML = `<span data-todo-checkbox contenteditable="false" class="inline-flex items-center pt-0.5 select-none"></span><span data-todo-content class="flex-1 outline-none min-w-0">${textContent || "<br>"}</span>`
+            li.className = "flex items-start gap-2.5 my-1.5"
+            li.innerHTML = `<span data-todo-checkbox contenteditable="false" class="inline-flex items-center justify-center size-5 shrink-0 select-none pointer-events-auto"></span><span data-todo-content class="flex-1 outline-none min-w-0">${textContent || "<br>"}</span>`
 
             ul.appendChild(li)
 

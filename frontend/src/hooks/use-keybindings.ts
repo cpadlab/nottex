@@ -195,9 +195,13 @@ export const useKeybindings = ({
                             const newLi = document.createElement('li')
                             newLi.setAttribute('data-type', 'todo-item')
                             newLi.setAttribute('data-checked', 'false')
-                            newLi.className = 'flex items-start gap-2 my-1'
+                            const indent = todoLi.getAttribute('data-indent')
+                            if (indent) {
+                                newLi.setAttribute('data-indent', indent)
+                            }
+                            newLi.className = 'flex items-start gap-2.5 my-1.5'
                             newLi.innerHTML =
-                                '<span data-todo-checkbox contenteditable="false" class="inline-flex items-center pt-0.5 select-none"></span><span data-todo-content class="flex-1 outline-none min-w-0"><br></span>'
+                                '<span data-todo-checkbox contenteditable="false" class="inline-flex items-center justify-center size-5 shrink-0 select-none pointer-events-auto"></span><span data-todo-content class="flex-1 outline-none min-w-0"><br></span>'
 
                             todoLi.after(newLi)
 

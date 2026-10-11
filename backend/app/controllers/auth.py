@@ -24,7 +24,14 @@ from app.schemas.auth import (
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
-from app.schemas.user import UserResponse
+from app.schemas.user import (
+    ChangeEmailRequest,
+    ChangeLanguageRequest,
+    ChangePasswordRequest,
+    UpdateProfileRequest,
+    UserActionResponse,
+    UserResponse,
+)
 from app.shared.database import db
 from app.shared.emailer import emailer
 from app.shared.logger import get_logger
@@ -140,7 +147,54 @@ async def send_password_changed_email_task(
         logger.error(f"Error sending password changed email to {email}: {e}")
 
 
+async def send_email_changed_email_task(
+    email: str,
+    first_name: str,
+    new_email: str,
+    language: str = "es",
+) -> None:
+    """
+    Background worker task to notify user that their account email was changed.
+    Sent to both the previous email (for security alert) and new email.
+    """
+    is_en = language.lower().startswith("en")
+    template_name = "en/email_changed.html" if is_en else "es/email_changed.html"
+    subject = (
+        f"Your {settings.APP_NAME} email address was updated"
+        if is_en
+        else f"Tu correo electrónico en {settings.APP_NAME} ha sido actualizado"
+    )
+
+    context = {
+        "app_name": settings.APP_NAME,
+        "first_name": first_name.capitalize(),
+        "new_email": new_email,
+    }
+
+    try:
+        await emailer.send_email(
+            to=email,
+            subject=subject,
+            template_name=template_name,
+            context=context,
+        )
+    except Exception as e:
+        logger.error(f"Error sending email changed notification to {email}: {e}")
+
+    if email != new_email:
+        try:
+            await emailer.send_email(
+                to=new_email,
+                subject=subject,
+                template_name=template_name,
+                context=context,
+            )
+        except Exception as e:
+            logger.error(f"Error sending email changed notification to {new_email}: {e}")
+
+
 class AuthController:
+
     """
     Controller that contains the business logic for authentication and user verification.
     """
@@ -807,6 +861,290 @@ class AuthController:
             )
 
         return TotpStatusResponse(is_enabled=user.get("is_totp_enabled", False))
+
+    @staticmethod
+    async def update_profile(user_id: str, payload: UpdateProfileRequest) -> UserActionResponse:
+        """
+        Updates the user's first and last name.
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        now = datetime.now(timezone.utc)
+        result = await users_collection.find_one_and_update(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "first_name": payload.first_name,
+                    "last_name": payload.last_name,
+                    "updated_at": now,
+                }
+            },
+            return_document=True,
+        )
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        user_response = UserResponse(
+            id=result["id"],
+            email=result["email"],
+            first_name=result["first_name"],
+            last_name=result["last_name"],
+            language=result.get("language", "es"),
+            is_verified=result.get("is_verified", False),
+            is_totp_enabled=result.get("is_totp_enabled", False),
+            last_login=result.get("last_login"),
+            created_at=result.get("created_at"),
+            updated_at=result.get("updated_at"),
+        )
+
+        return UserActionResponse(
+            message="user.profile_updated_success",
+            user=user_response,
+        )
+
+    @staticmethod
+    async def change_password(user_id: str, payload: ChangePasswordRequest) -> UserActionResponse:
+        """
+        Changes user password:
+        - Validates current password
+        - If TOTP is enabled, validates the 6-digit TOTP code
+        - Hashes and updates new password
+        - Dispatches confirmation email
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        if not verify_password(payload.current_password, user.get("hashed_password", "")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_current_password",
+            )
+
+        if user.get("is_totp_enabled"):
+            if not payload.totp_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="error.totp_code_required",
+                )
+            totp_secret = user.get("totp_secret")
+            if not totp_secret or not verify_totp_code(totp_secret, payload.totp_code):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="error.invalid_totp_code",
+                )
+
+        hashed_pwd = hash_password(payload.new_password)
+        now = datetime.now(timezone.utc)
+
+        await users_collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "hashed_password": hashed_pwd,
+                    "updated_at": now,
+                }
+            },
+        )
+
+        asyncio.create_task(
+            send_password_changed_email_task(
+                email=user["email"],
+                first_name=user.get("first_name", ""),
+                language=user.get("language", "es"),
+            )
+        )
+
+        logger.info(f"Password changed successfully for user {user.get('email')}")
+
+        return UserActionResponse(
+            message="auth.password_reset_success",
+        )
+
+    @staticmethod
+    async def change_email(user_id: str, payload: ChangeEmailRequest) -> UserActionResponse:
+        """
+        Changes user email:
+        - Validates password
+        - If TOTP is enabled, validates the 6-digit TOTP code
+        - Checks that new email is not already taken
+        - Updates email and marks is_verified=False
+        - Sends confirmation / security alert email to old and new address
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        if user["email"] == payload.new_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.email_same_as_current",
+            )
+
+        if not verify_password(payload.password, user.get("hashed_password", "")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_password",
+            )
+
+        if user.get("is_totp_enabled"):
+            if not payload.totp_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="error.totp_code_required",
+                )
+            totp_secret = user.get("totp_secret")
+            if not totp_secret or not verify_totp_code(totp_secret, payload.totp_code):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="error.invalid_totp_code",
+                )
+
+        existing = await users_collection.find_one({"email": payload.new_email})
+        if existing and existing["_id"] != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="error.email_already_registered",
+            )
+
+        now = datetime.now(timezone.utc)
+        verification_token = generate_verification_token()
+        verification_expires_at = now + timedelta(days=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_DAYS)
+
+        old_email = user["email"]
+        try:
+            result = await users_collection.find_one_and_update(
+                {"_id": user_id},
+                {
+                    "$set": {
+                        "email": payload.new_email,
+                        "is_verified": False,
+                        "verification_token": verification_token,
+                        "verification_token_expires_at": verification_expires_at,
+                        "updated_at": now,
+                    }
+                },
+                return_document=True,
+            )
+        except DuplicateKeyError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="error.email_already_registered",
+            )
+
+        asyncio.create_task(
+            send_email_changed_email_task(
+                email=old_email,
+                first_name=user.get("first_name", ""),
+                new_email=payload.new_email,
+                language=user.get("language", "es"),
+            )
+        )
+
+        asyncio.create_task(
+            send_verification_email_task(
+                email=payload.new_email,
+                first_name=user.get("first_name", ""),
+                token=verification_token,
+                language=user.get("language", "es"),
+            )
+        )
+
+        user_response = UserResponse(
+            id=result["id"],
+            email=result["email"],
+            first_name=result["first_name"],
+            last_name=result["last_name"],
+            language=result.get("language", "es"),
+            is_verified=result.get("is_verified", False),
+            is_totp_enabled=result.get("is_totp_enabled", False),
+            last_login=result.get("last_login"),
+            created_at=result.get("created_at"),
+            updated_at=result.get("updated_at"),
+        )
+
+        return UserActionResponse(
+            message="user.email_updated_success",
+            user=user_response,
+        )
+
+    @staticmethod
+    async def change_language(user_id: str, payload: ChangeLanguageRequest) -> UserActionResponse:
+        """
+        Updates user interface language preference ("es" or "en").
+        """
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        now = datetime.now(timezone.utc)
+        result = await users_collection.find_one_and_update(
+            {"_id": user_id},
+            {
+                "$set": {
+                    "language": payload.language,
+                    "updated_at": now,
+                }
+            },
+            return_document=True,
+        )
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        user_response = UserResponse(
+            id=result["id"],
+            email=result["email"],
+            first_name=result["first_name"],
+            last_name=result["last_name"],
+            language=result.get("language", "es"),
+            is_verified=result.get("is_verified", False),
+            is_totp_enabled=result.get("is_totp_enabled", False),
+            last_login=result.get("last_login"),
+            created_at=result.get("created_at"),
+            updated_at=result.get("updated_at"),
+        )
+
+        return UserActionResponse(
+            message="user.language_updated_success",
+            user=user_response,
+        )
+
 
 
 

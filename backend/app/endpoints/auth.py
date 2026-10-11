@@ -19,7 +19,14 @@ from app.schemas.auth import (
     VerifyEmailRequest,
     VerifyEmailResponse,
 )
-from app.schemas.user import UserResponse
+from app.schemas.user import (
+    ChangeEmailRequest,
+    ChangeLanguageRequest,
+    ChangePasswordRequest,
+    UpdateProfileRequest,
+    UserActionResponse,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 security = HTTPBearer(auto_error=False)
@@ -92,4 +99,37 @@ async def totp_disable(
     current_user: UserResponse = Depends(get_current_user_dep),
 ):
     return await AuthController.totp_disable(current_user.id, payload)
+
+
+@router.put("/profile", response_model=UserActionResponse)
+async def update_profile(
+    payload: UpdateProfileRequest,
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    return await AuthController.update_profile(current_user.id, payload)
+
+
+@router.put("/password", response_model=UserActionResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    return await AuthController.change_password(current_user.id, payload)
+
+
+@router.put("/email", response_model=UserActionResponse)
+async def change_email(
+    payload: ChangeEmailRequest,
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    return await AuthController.change_email(current_user.id, payload)
+
+
+@router.put("/language", response_model=UserActionResponse)
+async def change_language(
+    payload: ChangeLanguageRequest,
+    current_user: UserResponse = Depends(get_current_user_dep),
+):
+    return await AuthController.change_language(current_user.id, payload)
+
 

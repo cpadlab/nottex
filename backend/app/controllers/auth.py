@@ -1,6 +1,7 @@
 import asyncio
-import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Optional
+import uuid
 
 from fastapi import HTTPException, status
 from pymongo.errors import DuplicateKeyError
@@ -20,6 +21,7 @@ from app.shared.emailer import emailer
 from app.shared.logger import get_logger
 from app.shared.security import (
     create_access_token,
+    decode_access_token,
     generate_verification_token,
     hash_password,
 )
@@ -286,4 +288,67 @@ class AuthController:
         return ResendVerificationResponse(
             message="auth.verification_email_sent",
         )
+
+    @staticmethod
+    async def get_current_user(token: Optional[str]) -> UserResponse:
+        """
+        Validates JWT token from authorization header, retrieves user from MongoDB,
+        and returns the user profile.
+        """
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.unauthorized",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        payload = decode_access_token(token)
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.token_invalid_or_expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="error.unauthorized",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not db.is_connected:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="error.database_unavailable",
+            )
+
+        users_collection = db.users["users"]
+        user = await users_collection.find_one({"_id": user_id})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="error.user_not_found",
+            )
+
+        return UserResponse(
+            id=user["id"],
+            email=user["email"],
+            first_name=user["first_name"],
+            last_name=user["last_name"],
+            language=user.get("language", "es"),
+            is_verified=user.get("is_verified", False),
+            last_login=user.get("last_login"),
+            created_at=user.get("created_at"),
+            updated_at=user.get("updated_at"),
+        )
+
+    @staticmethod
+    async def me(token: Optional[str]) -> UserResponse:
+        """
+        Returns the profile of the currently authenticated user.
+        """
+        return await AuthController.get_current_user(token)
+
 

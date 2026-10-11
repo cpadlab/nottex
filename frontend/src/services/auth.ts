@@ -1,9 +1,13 @@
 import { api } from "@/lib/api";
 import type {
     AuthResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     RegisterRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     User,
     VerifyEmailRequest,
     VerifyEmailResponse,
@@ -26,6 +30,16 @@ export const authService = {
 
     async resendVerification(data: ResendVerificationRequest): Promise<ResendVerificationResponse> {
         const response = await api.post<ResendVerificationResponse>("/auth/resend-verification", data);
+        return response.data;
+    },
+
+    async forgotPassword(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+        const response = await api.post<ForgotPasswordResponse>("/auth/forgot-password", data);
+        return response.data;
+    },
+
+    async resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+        const response = await api.post<ResetPasswordResponse>("/auth/reset-password", data);
         return response.data;
     },
 

@@ -92,6 +92,8 @@
         "register_success": "Registro completado con éxito. Se ha enviado un correo para verificar tu cuenta.",
         "email_verified_success": "Correo electrónico verificado con éxito.",
         "email_already_verified": "El correo electrónico ya ha sido verificado previamente.",
-        "verification_email_sent": "Se ha enviado un nuevo correo de verificación."
+        "verification_email_sent": "Se ha enviado un nuevo correo de verificación.",
+        "forgot_password_email_sent": "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.",
+        "password_reset_success": "Tu contraseña ha sido restablecida con éxito."
     }
 }

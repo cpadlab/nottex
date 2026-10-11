@@ -92,6 +92,8 @@
         "register_success": "Registration successful. A verification email has been sent.",
         "email_verified_success": "Email address verified successfully.",
         "email_already_verified": "Email address was already verified.",
-        "verification_email_sent": "A new verification email has been sent."
+        "verification_email_sent": "A new verification email has been sent.",
+        "forgot_password_email_sent": "If the email is registered, you will receive password reset instructions.",
+        "password_reset_success": "Your password has been successfully reset."
     }
 }

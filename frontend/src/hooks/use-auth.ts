@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import authService from "@/services/auth";
-import type { RegisterRequest, User } from "@/types/auth";
+import type { AuthResponse, LoginRequest, RegisterRequest, User } from "@/types/auth";
 
 export interface UseAuthReturn {
     user: User | null;
@@ -8,7 +8,8 @@ export interface UseAuthReturn {
     isLoading: boolean;
     checkAuth: () => Promise<User | null>;
     loginWithToken: (token: string) => Promise<User | null>;
-    register: (data: RegisterRequest) => Promise<User>;
+    login: (data: LoginRequest) => Promise<AuthResponse>;
+    register: (data: RegisterRequest) => Promise<User | null>;
     logout: () => void;
 }
 
@@ -47,19 +48,37 @@ export function useAuth(): UseAuthReturn {
         [checkAuth]
     );
 
-    const register = useCallback(
-        async (data: RegisterRequest): Promise<User> => {
+    const login = useCallback(
+        async (data: LoginRequest): Promise<AuthResponse> => {
             setIsLoading(true);
             try {
-                const response = await authService.register(data);
-                setUser(response.user);
-                return response.user;
+                const response = await authService.login(data);
+                if (response.user) {
+                    setUser(response.user);
+                }
+                return response;
             } finally {
                 setIsLoading(false);
             }
         },
         []
     );
+
+    const register = useCallback(
+        async (data: RegisterRequest): Promise<User | null> => {
+            setIsLoading(true);
+            try {
+                const response = await authService.register(data);
+                const userObj = response.user ?? null;
+                setUser(userObj);
+                return userObj;
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        []
+    );
+
 
     const logout = useCallback(() => {
         authService.logout();
@@ -76,6 +95,7 @@ export function useAuth(): UseAuthReturn {
         isLoading,
         checkAuth,
         loginWithToken,
+        login,
         register,
         logout,
     };

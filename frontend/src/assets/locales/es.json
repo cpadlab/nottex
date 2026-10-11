@@ -100,10 +100,19 @@
         "only_owner_can_delete_note": "Solo el propietario puede eliminar la nota.",
         "only_owner_can_share_note": "Solo el propietario puede gestionar los colaboradores de la nota.",
         "collaborator_user_not_found": "El usuario con ese correo no está registrado en Nottex.",
-        "cannot_share_with_yourself": "No puedes compartir una nota contigo mismo."
+        "cannot_share_with_yourself": "No puedes compartir una nota contigo mismo.",
+        "invalid_credentials": "Las credenciales introducidas no son correctas.",
+        "invalid_totp_code": "El código de autenticación de dos factores es inválido o ha caducado.",
+        "totp_code_required": "Se requiere un código de autenticación de dos factores.",
+        "no_pending_totp_setup": "No hay ninguna configuración de 2FA pendiente de verificación.",
+        "totp_disable_auth_failed": "Contraseña o código 2FA incorrecto para deshabilitar la autenticación en dos pasos."
     },
     "auth": {
         "register_success": "Registro completado con éxito. Se ha enviado un correo para verificar tu cuenta.",
+        "login_success": "Inicio de sesión completado con éxito.",
+        "totp_code_required": "Introduce el código de 6 dígitos de tu aplicación de autenticación.",
+        "totp_enabled_success": "Autenticación en dos pasos habilitada con éxito.",
+        "totp_disabled_success": "Autenticación en dos pasos deshabilitada con éxito.",
         "email_verified_success": "Correo electrónico verificado con éxito.",
         "email_already_verified": "El correo electrónico ya ha sido verificado previamente.",
         "verification_email_sent": "Se ha enviado un nuevo correo de verificación.",

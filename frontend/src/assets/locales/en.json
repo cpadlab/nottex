@@ -100,10 +100,19 @@
         "only_owner_can_delete_note": "Only the note owner can delete this note.",
         "only_owner_can_share_note": "Only the note owner can manage collaborators.",
         "collaborator_user_not_found": "User with that email is not registered in Nottex.",
-        "cannot_share_with_yourself": "You cannot share a note with yourself."
+        "cannot_share_with_yourself": "You cannot share a note with yourself.",
+        "invalid_credentials": "The credentials provided are invalid.",
+        "invalid_totp_code": "The two-factor authentication code is invalid or expired.",
+        "totp_code_required": "A two-factor authentication code is required.",
+        "no_pending_totp_setup": "There is no pending 2FA setup to verify.",
+        "totp_disable_auth_failed": "Incorrect password or 2FA code to disable two-factor authentication."
     },
     "auth": {
         "register_success": "Registration successful. A verification email has been sent.",
+        "login_success": "Login successful.",
+        "totp_code_required": "Please enter the 6-digit code from your authenticator app.",
+        "totp_enabled_success": "Two-factor authentication enabled successfully.",
+        "totp_disabled_success": "Two-factor authentication disabled successfully.",
         "email_verified_success": "Email address verified successfully.",
         "email_already_verified": "Email address was already verified.",
         "verification_email_sent": "A new verification email has been sent.",

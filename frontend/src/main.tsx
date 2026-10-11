@@ -8,13 +8,16 @@ import App from '@/app.tsx'
 import '@/lib/i18n.ts'
 
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { AuthProvider } from '@/contexts/auth-context';
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <BrowserRouter>
-            <TooltipProvider>
-                <App />
-            </TooltipProvider>
+            <AuthProvider>
+                <TooltipProvider>
+                    <App />
+                </TooltipProvider>
+            </AuthProvider>
         </BrowserRouter>
     </StrictMode>,
 )

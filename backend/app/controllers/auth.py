@@ -653,20 +653,28 @@ class AuthController:
             )
 
         expires_at = user.get("password_reset_token_expires_at")
-        if expires_at:
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expires_at:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="error.token_expired",
-                )
+        if not expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_or_used_token",
+            )
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.token_expired",
+            )
 
         hashed_pwd = hash_password(payload.new_password)
         now = datetime.now(timezone.utc)
 
-        await users_collection.update_one(
-            {"_id": user["_id"]},
+        result = await users_collection.update_one(
+            {
+                "_id": user["_id"],
+                "password_reset_token": payload.token,
+                "password_reset_token_expires_at": {"$gt": now},
+            },
             {
                 "$set": {
                     "hashed_password": hashed_pwd,
@@ -677,6 +685,11 @@ class AuthController:
                 "$inc": {"token_version": 1},
             },
         )
+        if result.matched_count != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_or_used_token",
+            )
 
         logger.info(f"Password reset successfully for user: {user.get('email')}")
 
@@ -1038,16 +1051,23 @@ class AuthController:
         hashed_pwd = hash_password(payload.new_password)
         now = datetime.now(timezone.utc)
 
-        await users_collection.update_one(
-            {"_id": user_id},
+        result = await users_collection.update_one(
+            {"_id": user_id, "hashed_password": user.get("hashed_password")},
             {
                 "$set": {
                     "hashed_password": hashed_pwd,
+                    "password_reset_token": None,
+                    "password_reset_token_expires_at": None,
                     "updated_at": now,
                 },
                 "$inc": {"token_version": 1},
             },
         )
+        if result.matched_count != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="error.invalid_current_password",
+            )
 
         asyncio.create_task(
             send_password_changed_email_task(
